@@ -1,0 +1,19 @@
+This file contains information about Fuego releases.
+
+Version 0.1.1 - 2008 July 9
+===========================
+
+* Fix bug in SgUctTreeIterator (some nodes were visited multiple times)
+* Fix bug that caused search not to work if number_playouts > 1
+* Declare SgUctNode members volatile to avoid problems due to compiler
+  write reorderings in lock-free mode
+* Changes to make it compile with GCC 4.3
+* Print startup message
+* Make GTP command uct_stat_policy_clear work
+* Fix bugs that caused rare crashes if live gfx is used for main Fuego player
+
+Version 0.1 - 2008 May 30
+=========================
+
+Initial release. Compilation and functionality are tested on current Linux
+distributions (Fedora 8, Ubuntu 8.04 LTS) and Mac OS X.
