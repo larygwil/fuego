@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------
 /** @file SgWrite.cpp
-    See SgWrite.h.
+    @see SgWrite.h.
 */
 //----------------------------------------------------------------------------
 
@@ -43,7 +43,7 @@ ostream& operator<<(ostream& stream, const SgWriteLine &w)
 
 ostream& operator<<(ostream& out, const SgWriteMove& w)
 {
-    out << SgBW(w.m_c) << ' ' << SgWritePoint(w.m_p) << ' ';
+    out << BW(w.m_c) << ' ' << SgWritePoint(w.m_p) << ' ';
     return out;
 }
 

@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------
 /** @file GoGtpEngine.cpp
-    See GoGtpEngine.h
+    @see GoGtpEngine.h
 */
 //----------------------------------------------------------------------------
 
@@ -69,8 +69,8 @@ string KoRuleToString(GoRules::KoRule rule)
 
 //----------------------------------------------------------------------------
 
-GoGtpEngine::GoGtpEngine(istream& in, ostream& out, int initialBoardSize,
-                         const char* programPath, bool noPlayer)
+GoGtpEngine::GoGtpEngine(istream& in, ostream& out, const char* programPath,
+                         bool noPlayer)
     : GtpEngine(in, out),
       m_player(0),
       m_noPlayer(noPlayer),
@@ -83,7 +83,6 @@ GoGtpEngine::GoGtpEngine(istream& in, ostream& out, int initialBoardSize,
       m_timeLastMove(0),
       m_timeLimit(10),
       m_overhead(0),
-      m_board(initialBoardSize),
       m_game(m_board),
       m_sgCommands(*this, programPath),
       m_bookCommands(m_board, m_book)
@@ -183,7 +182,7 @@ void GoGtpEngine::AutoSave() const
     }
     catch (const GtpFailure& failure)
     {
-        SgWarning() << failure.Response() << '\n';
+        SgDebug() << failure.Response() << '\n';
     }
 }
 
@@ -255,7 +254,7 @@ void GoGtpEngine::CheckLegal(string message, SgBlackWhite color, SgPoint move,
     if (illegal)
     {
         int moveNumber = GetGame().CurrentMoveNumber() + 1;
-        throw GtpFailure() << message << moveNumber << ' ' << SgBW(color)
+        throw GtpFailure() << message << moveNumber << ' ' << BW(color)
                            << ' ' << SgWritePoint(move) << reason;
     }
 }
@@ -538,7 +537,7 @@ void GoGtpEngine::CmdLoadSgf(GtpCommand& cmd)
         throw GtpFailure("no games in file");
     if (reader.GetWarnings().any())
     {
-        SgWarning() << fileName << ":\n";
+        SgDebug() << "Warning: " << fileName << ":\n";
         reader.PrintWarnings(SgDebug());
     }
     if (Board().MoveNumber() > 0)
@@ -821,7 +820,7 @@ void GoGtpEngine::CmdPointInfo(GtpCommand& cmd)
     SgPoint p = PointArg(cmd);
     const GoBoard& bd = Board();
     cmd << "Point:\n"
-        << SgWriteLabel("Color") << SgEBW(bd.GetColor(p)) << '\n'
+        << SgWriteLabel("Color") << EBW(bd.GetColor(p)) << '\n'
         << SgWriteLabel("InCenter") << bd.InCenter(p) << '\n'
         << SgWriteLabel("InCorner") << bd.InCorner(p) << '\n'
         << SgWriteLabel("Line") << bd.Line(p) << '\n'
@@ -1361,12 +1360,12 @@ void GoGtpEngine::WriteBoardInfo(GtpCommand& cmd, const GoBoard& bd)
     cmd << "Board:\n"
         << SgWriteLabel("Hash") << bd.GetHashCode() << '\n'
         << SgWriteLabel("HashToPlay") << bd.GetHashCodeInclToPlay() << '\n'
-        << SgWriteLabel("KoColor") << SgEBW(bd.KoColor()) << '\n'
+        << SgWriteLabel("KoColor") << EBW(bd.KoColor()) << '\n'
         << SgWriteLabel("MoveNumber") << bd.MoveNumber() << '\n'
         << SgWriteLabel("NumStones[B]") << bd.TotalNumStones(SG_BLACK) << '\n'
         << SgWriteLabel("NumStones[W]") << bd.TotalNumStones(SG_WHITE) << '\n'
         << SgWriteLabel("NumEmpty") << bd.TotalNumEmpty() << '\n'
-        << SgWriteLabel("ToPlay") << SgBW(bd.ToPlay()) << '\n'
+        << SgWriteLabel("ToPlay") << BW(bd.ToPlay()) << '\n'
         << SgWriteLabel("CountPlay") << bd.CountPlay() << '\n'
         << "Sets:\n"
         << SgWritePointSet(bd.AllPoints(), "AllPoints")

@@ -13,16 +13,19 @@ using namespace std;
 
 //----------------------------------------------------------------------------
 
-
-SgNode* GoNodeUtil::CreatePosition(int boardSize, SgBlackWhite toPlay,
-                               const SgList<SgPoint>& bPoints,
-                               const SgList<SgPoint>& wPoints )
+SgNode* GoNodeUtil::CreateRoot(const GoBoard& board)
 {
     SgNode* node = new SgNode();
-    node->Add(new SgPropInt(SG_PROP_SIZE, boardSize));
-    node->Add(new SgPropPlayer(SG_PROP_PLAYER, toPlay));
-    node->Add(new SgPropAddStone(SG_PROP_ADD_BLACK, bPoints));
-    node->Add(new SgPropAddStone(SG_PROP_ADD_WHITE, wPoints));
+    node->Add(new SgPropInt(SG_PROP_SIZE, board.Size()));
+    for (SgBWIterator it; it; ++it)
+    {
+        SgList<SgPoint> pointList;
+        board.All(*it).ToList(&pointList);
+        SgPropID id =
+            *it == SG_BLACK ? SG_PROP_ADD_BLACK : SG_PROP_ADD_WHITE;
+        node->Add(new SgPropAddStone(id, pointList));
+    }
+    node->Add(new SgPropPlayer(SG_PROP_PLAYER, board.ToPlay()));
     return node;
 }
 

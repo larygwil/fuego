@@ -14,21 +14,34 @@
     They should be value-types, not entity-types, because operations like
     Clear() do not call the destructor of the old elements immediately.
 */
-template<typename T, int SIZE>
+template <typename T, int SIZE>
 class SgSList
 {
 public:
-    /** Const iterator */
+    /** Local const iterator */
     class Iterator
     {
     public:
-        Iterator(const SgSList& list);
+        Iterator(const SgSList& list)
+            : m_end(list.m_array + list.Length()),
+              m_current(list.m_array)
+        { }
 
-        const T& operator*() const;
+        const T& operator*() const
+        {
+            SG_ASSERT(*this);
+            return *m_current;
+        }
+        
+        void operator++()
+        {
+            ++m_current;
+        }
 
-        void operator++();
-
-        operator bool() const;
+        operator bool() const
+        {
+            return m_current < m_end;
+        }
 
     private:
         const T* m_end;
@@ -36,17 +49,30 @@ public:
         const T* m_current;
     };
 
-    /** Non-const iterator */
+    /** Local non-const iterator */
     class NonConstIterator
     {
     public:
-        NonConstIterator(SgSList& list);
+        NonConstIterator(SgSList& list)
+            : m_end(list.m_array + list.Length()),
+              m_current(list.m_array)
+        { }
 
-        T& operator*() const;
+        T& operator*() const
+        {
+            SG_ASSERT(*this);
+            return *m_current;
+        }
 
-        void operator++();
+        void operator++()
+        {
+            ++m_current;
+        }
 
-        operator bool() const;
+        operator bool() const
+        {
+            return m_current < m_end;
+        }
 
     private:
         const T* m_end;
@@ -54,34 +80,61 @@ public:
         T* m_current;
     };
 
-    SgSList();
+    SgSList()
+        : m_len(0)
+    { }
 
-    /** Construct list with one element. */
-    explicit SgSList(const T& val);
+    explicit SgSList(const T& val)
+    {
+        SetTo(val);
+        m_len = 1;
+        m_array[0] = val;
+    }
 
-    SgSList(const SgSList<T,SIZE>& list);
-
+    SgSList(const SgSList<T, SIZE>& list)
+    {
+        *this = list;
+    }
+    
     SgSList& operator=(const SgSList& list);
 
     bool operator==(const SgSList& list) const;
 
-    bool operator!=(const SgSList& list) const;
+    bool operator!=(const SgSList& list) const
+    {
+        return ! this->operator==(list);
+    }
 
-    T& operator[](int index);
+    T& operator[](int index)
+    {
+        SG_ASSERT(index >= 0);
+        SG_ASSERT(index < m_len);
+        return m_array[index];
+    }
 
-    const T& operator[](int index) const;
+    const T& operator[](int index) const
+    {
+        SG_ASSERT(index >= 0);
+        SG_ASSERT(index < m_len);
+        return m_array[index];
+    }
 
-    void Append(const T& val);
+    void Append(const T& val)
+    {
+        SG_ASSERT(m_len < SIZE);
+        m_array[m_len++] = val;
+    }
 
-    /** Append all elements of another list.
-        Works with lists of different maximum sizes.
-        Requires: Total resulting number of elements will fit into the target
-        list.
-    */
-    template<int SIZE2>
-    void Append(const SgSList<T,SIZE2>& list);
+    void Append(const SgSList& list)
+    {
+        for (Iterator it(list); it; ++it)
+            Append(*it);
+    }
 
-    void Clear();
+    void Clear()
+    {
+        m_len = 0;
+    }
 
     bool Contains(const T& val) const;
 
@@ -93,29 +146,38 @@ public:
     */
     bool Exclude(const T& val);
 
-    /** Append value at the end of the list if it's not already in the
-        list.
-    */
-    void Include(const T& val);
-
     /** Build intersection with other list.
         List may not contain duplicate entries.
     */
     SgSList Intersect(const SgSList<T,SIZE>& list) const;
 
-    bool IsEmpty() const;
+    bool IsEmpty() const
+    {
+        return m_len == 0;
+    }
 
-    T& Last();
+    T& Last()
+    {
+        SG_ASSERT(m_len > 0);
+        return m_array[m_len - 1];
+    }
 
-    const T& Last() const;
+    const T& Last() const
+    {
+        SG_ASSERT(m_len > 0);
+        return m_array[m_len - 1];
+    }
 
-    int Length() const;
+    int Length() const
+    {
+        return m_len;
+    }
 
-    /** Remove the last element of the list.
-        Does not return the last element for efficiency. To get the last
-        element, use Last() before calling PopBack().
-    */
-    void PopBack();
+    void Pop()
+    {
+        SG_ASSERT(m_len > 0);
+        --m_len;
+    }
 
     /** Remove first occurence of a value.
         Preserves order of remaining elements.
@@ -130,11 +192,20 @@ public:
         This is necessary if elements are re-used for efficiency and will be
         initialized later.
     */
-    void Resize(int length);
+    void Resize(int length)
+    {
+        SG_ASSERT(length >= 0);
+        SG_ASSERT(length <= SIZE);
+        m_len = length;
+    }
 
     bool SameElements(const SgSList& list) const;
 
-    void SetTo(const T& val);
+    void SetTo(const T& val)
+    {
+        m_len = 1;
+        m_array[0] = val;
+    }
 
 private:
     friend class Iterator;
@@ -147,80 +218,8 @@ private:
 
 //----------------------------------------------------------------------------
 
-template<typename T, int SIZE>
-inline SgSList<T,SIZE>::Iterator::Iterator(const SgSList& list)
-    : m_end(list.m_array + list.Length()),
-      m_current(list.m_array)
-{
-}
-
-template<typename T, int SIZE>
-inline const T& SgSList<T,SIZE>::Iterator::operator*() const
-{
-    SG_ASSERT(*this);
-    return *m_current;
-}
-
-template<typename T, int SIZE>
-inline void SgSList<T,SIZE>::Iterator::operator++()
-{
-    ++m_current;
-}
-
-template<typename T, int SIZE>
-inline SgSList<T,SIZE>::Iterator::operator bool() const
-{
-    return m_current < m_end;
-}
-
-template<typename T, int SIZE>
-inline SgSList<T,SIZE>::NonConstIterator::NonConstIterator(SgSList& list)
-    : m_end(list.m_array + list.Length()),
-      m_current(list.m_array)
-{
-}
-
-template<typename T, int SIZE>
-inline T& SgSList<T,SIZE>::NonConstIterator::operator*() const
-{
-    SG_ASSERT(*this);
-    return *m_current;
-}
-
-template<typename T, int SIZE>
-inline void SgSList<T,SIZE>::NonConstIterator::operator++()
-{
-    ++m_current;
-}
-
-template<typename T, int SIZE>
-inline SgSList<T,SIZE>::NonConstIterator::operator bool() const
-{
-    return m_current < m_end;
-}
-
-template<typename T, int SIZE>
-inline SgSList<T,SIZE>::SgSList()
-    : m_len(0)
-{
-}
-
-template<typename T, int SIZE>
-inline SgSList<T,SIZE>::SgSList(const T& val)
-{
-    SetTo(val);
-    m_len = 1;
-    m_array[0] = val;
-}
-
-template<typename T, int SIZE>
-inline SgSList<T,SIZE>::SgSList(const SgSList<T,SIZE>& list)
-{
-    *this = list;
-}
-
-template<typename T, int SIZE>
-SgSList<T,SIZE>& SgSList<T,SIZE>::operator=(const SgSList& list)
+template <typename T, int SIZE>
+SgSList<T, SIZE>& SgSList<T, SIZE>::operator=(const SgSList& list)
 {
     m_len = list.m_len;
     T* p = m_array;
@@ -230,8 +229,8 @@ SgSList<T,SIZE>& SgSList<T,SIZE>::operator=(const SgSList& list)
     return *this;
 }
 
-template<typename T, int SIZE>
-bool SgSList<T,SIZE>::operator==(const SgSList& list) const
+template <typename T, int SIZE>
+bool SgSList<T, SIZE>::operator==(const SgSList& list) const
 {
     if (m_len != list.m_len)
         return false;
@@ -243,51 +242,8 @@ bool SgSList<T,SIZE>::operator==(const SgSList& list) const
     return true;
 }
 
-template<typename T, int SIZE>
-inline bool SgSList<T,SIZE>::operator!=(const SgSList& list) const
-{
-    return ! this->operator==(list);
-}
-
-template<typename T, int SIZE>
-inline T& SgSList<T,SIZE>::operator[](int index)
-{
-    SG_ASSERT(index >= 0);
-    SG_ASSERT(index < m_len);
-    return m_array[index];
-}
-
-template<typename T, int SIZE>
-inline const T& SgSList<T,SIZE>::operator[](int index) const
-{
-    SG_ASSERT(index >= 0);
-    SG_ASSERT(index < m_len);
-    return m_array[index];
-}
-
-template<typename T, int SIZE>
-inline void SgSList<T,SIZE>::Append(const T& val)
-{
-    SG_ASSERT(m_len < SIZE);
-    m_array[m_len++] = val;
-}
-
-template<typename T, int SIZE>
-template<int SIZE2>
-inline void SgSList<T,SIZE>::Append(const SgSList<T,SIZE2>& list)
-{
-    for (typename SgSList<T,SIZE2>::Iterator it(list); it; ++it)
-        Append(*it);
-}
-
-template<typename T, int SIZE>
-inline void SgSList<T,SIZE>::Clear()
-{
-    m_len = 0;
-}
-
-template<typename T, int SIZE>
-bool SgSList<T,SIZE>::Contains(const T& val) const
+template <typename T, int SIZE>
+bool SgSList<T, SIZE>::Contains(const T& val) const
 {
     int i;
     const T* t = m_array;
@@ -297,8 +253,8 @@ bool SgSList<T,SIZE>::Contains(const T& val) const
     return false;
  }
 
-template<typename T, int SIZE>
-bool SgSList<T,SIZE>::Exclude(const T& val)
+template <typename T, int SIZE>
+bool SgSList<T, SIZE>::Exclude(const T& val)
 {
     // Go backwards through list, because with game playing programs
     // it is more likely that a recently added element is removed first
@@ -314,15 +270,8 @@ bool SgSList<T,SIZE>::Exclude(const T& val)
     return false;
 }
 
-template<typename T, int SIZE>
-void SgSList<T,SIZE>::Include(const T& val)
-{
-    if (! Contains(val))
-        Append(val);
-}
-
-template<typename T, int SIZE>
-SgSList<T,SIZE> SgSList<T,SIZE>::Intersect(const SgSList<T,SIZE>& list)
+template <typename T, int SIZE>
+SgSList<T, SIZE> SgSList<T, SIZE>::Intersect(const SgSList<T, SIZE>& list)
     const
 {
     SgSList <T, SIZE> result;
@@ -336,41 +285,8 @@ SgSList<T,SIZE> SgSList<T,SIZE>::Intersect(const SgSList<T,SIZE>& list)
     return result;
 }
 
-template<typename T, int SIZE>
-inline bool SgSList<T,SIZE>::IsEmpty() const
-{
-    return m_len == 0;
-}
-
-template<typename T, int SIZE>
-inline T& SgSList<T,SIZE>::Last()
-{
-    SG_ASSERT(m_len > 0);
-    return m_array[m_len - 1];
-}
-
-template<typename T, int SIZE>
-inline const T& SgSList<T,SIZE>::Last() const
-{
-    SG_ASSERT(m_len > 0);
-    return m_array[m_len - 1];
-}
-
-template<typename T, int SIZE>
-inline int SgSList<T,SIZE>::Length() const
-{
-    return m_len;
-}
-
-template<typename T, int SIZE>
-inline void SgSList<T,SIZE>::PopBack()
-{
-    SG_ASSERT(m_len > 0);
-    --m_len;
-}
-
-template<typename T, int SIZE>
-void SgSList<T,SIZE>::RemoveFirst(const T& val)
+template <typename T, int SIZE>
+void SgSList<T, SIZE>::RemoveFirst(const T& val)
 {
     int i;
     T* t = m_array;
@@ -384,16 +300,8 @@ void SgSList<T,SIZE>::RemoveFirst(const T& val)
         }
 }
 
-template<typename T, int SIZE>
-inline void SgSList<T,SIZE>::Resize(int length)
-{
-    SG_ASSERT(length >= 0);
-    SG_ASSERT(length <= SIZE);
-    m_len = length;
-}
-
-template<typename T, int SIZE>
-bool SgSList<T,SIZE>::SameElements(const SgSList& list) const
+template <typename T, int SIZE>
+bool SgSList<T, SIZE>::SameElements(const SgSList& list) const
 {
     if (m_len != list.m_len)
         return false;
@@ -402,13 +310,6 @@ bool SgSList<T,SIZE>::SameElements(const SgSList& list) const
         if (! list.Contains(*p))
             return false;
     return true;
-}
-
-template<typename T, int SIZE>
-inline void SgSList<T,SIZE>::SetTo(const T& val)
-{
-    m_len = 1;
-    m_array[0] = val;
 }
 
 //----------------------------------------------------------------------------

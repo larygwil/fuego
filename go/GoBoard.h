@@ -67,13 +67,10 @@ typedef std::bitset<nuMoveInfoFlag> GoMoveInfo;
 
 //----------------------------------------------------------------------------
 
-/** Static list having enough room for all points on board and SG_PASS. */
-typedef SgSList<SgPoint,SG_MAX_ONBOARD + 1> GoPointList;
+/** SgSList having enough room for all points on board and SG_PASS. */
+typedef SgSList<SgPoint,SG_MAX_ONBOARD + 1> SgPointSList;
 
-/** Static list having enough room for longest move sequence supported by
-    GoBoard.
-*/
-typedef SgSList<SgPoint,GO_MAX_NUM_MOVES> GoSequence;
+typedef SgPointSList::Iterator SgPointSListIterator;
 
 //----------------------------------------------------------------------------
 
@@ -81,7 +78,7 @@ typedef SgSList<SgPoint,GO_MAX_NUM_MOVES> GoSequence;
 class GoSetup
 {
 public:
-    SgBWArray<GoPointList> m_stones;
+    SgBWArray<SgPointSList> m_stones;
 
     SgBlackWhite m_player;
 
@@ -423,7 +420,7 @@ public:
         Includes captures and suicide stones.
         Only valid directly after a GoBoard::Play, otherwise undefined.
     */
-    const GoPointList& CapturedStones() const;
+    const SgPointSList& CapturedStones() const;
 
     /** The stones captured by the most recent move.
         @see CapturedStones
@@ -491,13 +488,8 @@ public:
     */
     bool AreInSameBlock(SgPoint stone1, SgPoint stone2) const;
 
-    /** Return the reference point of the block at a point.
-        Requires: Occupied(p) <br>
-        The reference point of a block is guaranteed to stay the same for
-        a given position after moves were played and undone on the board.
-        @note Older versions of SmartGame guaranteed that the anchor is the
-        point with the smallest integer value of the block. This guarantee
-        was removed for efficiency reasons
+    /** Return the smallest point in the block at a point.
+        Requires: Occupied(p).
     */
     SgPoint Anchor(SgPoint p) const;
 
@@ -581,6 +573,10 @@ public:
         ignoring any possible repetition. */
     bool CanCapture(SgPoint p, SgBlackWhite c) const;
 
+    /** Whether stones are actually removed from the board when a 
+        capturing move is made (default is true) */
+    void SetKillCaptures(bool kill);
+
     /** %Player who has immediately retaken a ko.
         It is SG_EMPTY if no player has done it.
     */
@@ -632,7 +628,7 @@ private:
 
         typedef LibertyList::Iterator LibertyIterator;
 
-        typedef GoPointList::Iterator StoneIterator;
+        typedef SgPointSList::Iterator StoneIterator;
 
         SgPoint Anchor() const { return m_anchor; }
 
@@ -646,17 +642,17 @@ private:
 
         void Init(SgBlackWhite c, SgPoint anchor)
         {
-            SG_ASSERT_BW(c);
+            SG_ASSERT(IsBlackWhite(c));
             m_color = c;
             m_anchor = anchor;
             m_stones.SetTo(anchor);
             m_liberties.Clear();
         }
 
-        void Init(SgBlackWhite c, SgPoint anchor, GoPointList stones,
+        void Init(SgBlackWhite c, SgPoint anchor, SgPointSList stones,
                   LibertyList liberties)
         {
-            SG_ASSERT_BW(c);
+            SG_ASSERT(IsBlackWhite(c));
             SG_ASSERT(stones.Contains(anchor));
             m_color = c;
             m_anchor = anchor;
@@ -670,11 +666,13 @@ private:
 
         int NumStones() const { return m_stones.Length(); }
 
-        void PopStone() { m_stones.PopBack(); }
+        void PopStone() { m_stones.Pop(); }
 
         void SetAnchor(SgPoint p) { m_anchor = p; }
 
-        const GoPointList& Stones() const { return m_stones; }
+        const SgPointSList& Stones() const { return m_stones; }
+
+        void UpdateAnchor(SgPoint p) { if (p < m_anchor) m_anchor = p; }
 
     private:
         SgPoint m_anchor;
@@ -683,7 +681,7 @@ private:
 
         LibertyList m_liberties;
 
-        GoPointList m_stones;
+        SgPointSList m_stones;
     };
 
     /** Board hash code.
@@ -892,7 +890,7 @@ private:
 
     mutable SgMarker m_marker;
 
-    GoPointList m_capturedStones;
+    SgPointSList m_capturedStones;
 
     /** Arbitrary repetition for both players. */
     bool m_allowAnyRepetition;
@@ -910,6 +908,8 @@ private:
     SgArray<bool,SG_MAXPOINT> m_isBorder;
 
     SgSList<StackEntry,GO_MAX_NUM_MOVES>* m_moves;
+    
+    bool m_killCaptures;
 
     static bool IsPass(SgPoint p);
 
@@ -945,10 +945,13 @@ private:
 
     bool IsAdjacentTo(SgPoint p, const Block* block) const;
 
+    void KillAdjacentOpponentBlocks(SgPoint p, SgBlackWhite opp,
+                                    StackEntry& entry);
+
     void MergeBlocks(SgPoint p, SgBlackWhite c,
                      const SgSList<Block*,4>& adjBlocks);
 
-    void RemoveLibAndKill(SgPoint p, SgBlackWhite opp, StackEntry& entry);
+    void RemoveLibFromAdjBlocks(SgPoint p);
 
     void RemoveLibFromAdjBlocks(SgPoint p, SgBlackWhite c);
 
@@ -978,7 +981,7 @@ private:
 
     void RemoveStoneForUndo(SgPoint p);
 
-    void KillBlock(const Block* block);
+    void KillBlock(SgPoint p);
 
     bool HasLiberties(SgPoint p) const;
 
@@ -1310,7 +1313,7 @@ inline bool GoBoard::CanUndo() const
     return (m_moves->Length() > 0);
 }
 
-inline const GoPointList& GoBoard::CapturedStones() const
+inline const SgPointSList& GoBoard::CapturedStones() const
 {
     return m_capturedStones;
 }
@@ -1358,7 +1361,7 @@ inline SgPoint GoBoard::Get2ndLastMove() const
     const StackEntry& entry1 = (*m_moves)[moveNumber - 1];
     const StackEntry& entry2 = (*m_moves)[moveNumber - 2];
     SgBlackWhite toPlay = ToPlay();
-    if (entry1.m_color != SgOppBW(toPlay) || entry2.m_color != toPlay)
+    if (entry1.m_color != OppBW(toPlay) || entry2.m_color != toPlay)
         return SG_NULLMOVE;
     return entry2.m_point;
 }
@@ -1384,7 +1387,7 @@ inline SgPoint GoBoard::GetLastMove() const
     if (moveNumber == 0)
         return SG_NULLMOVE;
     const StackEntry& entry = (*m_moves)[moveNumber - 1];
-    if (entry.m_color != SgOppBW(ToPlay()))
+    if (entry.m_color != OppBW(ToPlay()))
         return SG_NULLMOVE;
     return entry.m_point;
 }
@@ -1463,7 +1466,7 @@ inline bool GoBoard::IsLibertyOfBlock(SgPoint p, SgPoint anchor) const
 
 inline bool GoBoard::CanCapture(SgPoint p, SgBlackWhite c) const
 {
-    SgBlackWhite opp = SgOppBW(c);
+    SgBlackWhite opp = OppBW(c);
     for (SgNb4Iterator nb(p); nb; ++nb)
         if (IsColor(*nb, opp) && AtMostNumLibs(*nb, 1))
             return true;
@@ -1489,7 +1492,7 @@ inline bool GoBoard::IsSuicide(SgPoint p, SgBlackWhite toPlay) const
 {
     if (HasEmptyNeighbors(p))
         return false;
-    SgBlackWhite opp = SgOppBW(toPlay);
+    SgBlackWhite opp = OppBW(toPlay);
     for (SgNb4Iterator it(p); it; ++it)
     {
         if (IsBorder(*it))
@@ -1512,7 +1515,7 @@ inline bool GoBoard::IsBorder(SgPoint p) const
 inline bool GoBoard::IsColor(SgPoint p, int c) const
 {
     SG_ASSERT(p != SG_PASS);
-    SG_ASSERT_EBW(c);
+    SG_ASSERT(IsEmptyBlackWhite(c));
     return m_state.m_color[p] == c;
 }
 
@@ -1741,7 +1744,7 @@ inline bool GoBoard::OnEdge(SgPoint p) const
 
 inline SgBlackWhite GoBoard::Opponent() const
 {
-    return SgOppBW(m_state.m_toPlay);
+    return OppBW(m_state.m_toPlay);
 }
 
 inline void GoBoard::Play(GoPlayerMove move)
@@ -1842,6 +1845,11 @@ inline int GoBoard::TotalNumStones(SgBlackWhite color) const
 inline int GoBoard::Up(SgPoint p) const
 {
     return m_const.Up(p);
+}
+
+inline void GoBoard::SetKillCaptures(bool kill)
+{
+    m_killCaptures = kill;
 }
 
 //----------------------------------------------------------------------------

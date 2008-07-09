@@ -87,11 +87,9 @@ public:
 
     void Execute(SgMove move);
 
-    void ExecutePlayout(SgMove move);
-
     void GenerateAllMoves(vector<SgMove>& moves);
 
-    SgMove GeneratePlayoutMove(bool& skipRaveUpdate);
+    SgMove GenerateRandomMove(bool& skipRaveUpdate);
 
     void StartSearch();
 
@@ -135,7 +133,7 @@ void TestThreadState::Execute(SgMove move)
 {
     if (WRITE)
         SgDebug() << "TestUctSearch::Execute: " << move << '\n';
-    m_toPlay = SgOppBW(m_toPlay);
+    m_toPlay = OppBW(m_toPlay);
     size_t child = CurrentNode().m_child;
     while (child != NO_NODE)
     {
@@ -147,11 +145,6 @@ void TestThreadState::Execute(SgMove move)
         child = Node(child).m_sibling;
     }
     SG_ASSERT(false);
-}
-
-void TestThreadState::ExecutePlayout(SgMove move)
-{
-    Execute(move);
 }
 
 float TestThreadState::Evaluate()
@@ -179,7 +172,7 @@ void TestThreadState::GenerateAllMoves(vector<SgMove>& moves)
         SgDebug() << '\n';
 }
 
-SgMove TestThreadState::GeneratePlayoutMove(bool& skipRaveUpdate)
+SgMove TestThreadState::GenerateRandomMove(bool& skipRaveUpdate)
 {
     SG_UNUSED(skipRaveUpdate);
     // Search does not use randomness
@@ -207,7 +200,7 @@ void TestThreadState::TakeBack(size_t nuMoves)
         SgDebug() << "TestUctSearch::TakeBack\n";
     for (size_t i = 1; i <= nuMoves; ++i)
     {
-        m_toPlay = SgOppBW(m_toPlay);
+        m_toPlay = OppBW(m_toPlay);
         m_currentNode = CurrentNode().m_father;
         SG_ASSERT(m_currentNode != NO_NODE);
     }

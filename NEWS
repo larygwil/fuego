@@ -1,17 +1,16 @@
-This file contains information about Fuego releases. It also contains a
-(probably incomplete) list of the most important changes or of all
-critical bugfixes in releases from a bugfix branch. For a detailed changelog
-of changes in the main development branch, consult the version control
-history.
+This file contains information about Fuego releases.
 
-
-Current development version
+Version 0.1.1 - 2008 July 9
 ===========================
 
-* Declare data members of UCT nodes and signature statistis as volatile.
-  This avoids that the compiler reorders writes, which could cause crashes
-  if the UCT search is used in lock-free mode.
-
+* Fix bug in SgUctTreeIterator (some nodes were visited multiple times)
+* Fix bug that caused search not to work if number_playouts > 1
+* Declare SgUctNode members volatile to avoid problems due to compiler
+  write reorderings in lock-free mode
+* Changes to make it compile with GCC 4.3
+* Print startup message
+* Make GTP command uct_stat_policy_clear work
+* Fix bugs that caused rare crashes if live gfx is used for main Fuego player
 
 Version 0.1 - 2008 May 30
 =========================

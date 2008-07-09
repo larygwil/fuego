@@ -12,13 +12,7 @@
 
 //----------------------------------------------------------------------------
 
-/** Enable the usage of the safety solver (currently not functional).
-    Compile-time constant to enable the usage of the safety solver. This
-    cost some performance and there are no experiments yet showing that it
-    improves the playing strength. It is also currently not functional,
-    since it has not been updated after code changes.
-*/
-const bool GOUCT_USE_SAFETY_SOLVER = false;
+const bool USE_SAFETY_SOLVER = false;
 
 //----------------------------------------------------------------------------
 
@@ -252,9 +246,9 @@ public:
 
     void GenerateAllMoves(std::vector<SgMove>& moves);
 
-    SgMove GeneratePlayoutMove(bool& skipRaveUpdate);
+    SgMove GenerateRandomMove(bool& skipRaveUpdate);
 
-    void ExecutePlayout(SgMove move);
+    void Execute(SgMove move);
 
     void GameStart();
 
@@ -291,7 +285,7 @@ private:
     int m_stoneDiff;
 
     /** The area in which moves should be generated. */
-    GoPointList m_area;
+    SgPointSList m_area;
 
     /** See SetMercyRule() */
     float m_mercyRuleResult;
@@ -387,9 +381,6 @@ public:
     void OnStartSearch();
 
     // @} // @name
-
-    /** Set default search parameters optimized for a board size. */
-    void SetDefaultParameters(int boardSize);
 
 private:
     SgBWSet m_safe;

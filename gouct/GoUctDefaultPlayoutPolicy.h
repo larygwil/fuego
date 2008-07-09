@@ -7,7 +7,6 @@
 #define GOUCT_DEFAULTPLAYOUTPOLICY_H
 
 #include <iostream>
-#include <boost/array.hpp>
 #include "GoUctGlobalSearch.h"
 #include "GoUctPatterns.h"
 #include "GoUctPureRandomGenerator.h"
@@ -36,40 +35,14 @@ public:
 
 //----------------------------------------------------------------------------
 
-/** Move types used in GoUctDefaultPlayoutPolicy. */
-enum GoUctDefaultPlayoutPolicyType
-{
-    GOUCT_ATARI_CAPTURE,
-
-    GOUCT_ATARI_DEFEND,
-
-    GOUCT_LOWLIB,
-
-    GOUCT_PATTERN,
-
-    GOUCT_CAPTURE,
-
-    GOUCT_RANDOM,
-
-    GOUCT_SELFATARI_CORRECTION,
-
-    GOUCT_CLUMP_CORRECTION,
-
-    GOUCT_PASS,
-
-    _GOUCT_NU_DEFAULT_PLAYOUT_TYPE
-};
-
-const char* GoUctDefaultPlayoutPolicyTypeStr(
-                                          GoUctDefaultPlayoutPolicyType type);
-
-//----------------------------------------------------------------------------
-
 /** Statistics collected by GoUctDefaultPlayoutPolicy */
 struct GoUctDefaultPlayoutPolicyStat
 {
     /** Number of moves generated. */
     std::size_t m_nuMoves;
+
+    /** Number of pure random moves played. */
+    std::size_t m_nuRandMoves;
 
     /** Length of sequences of consecutive non-pure-random moves. */
     SgUctStatistics m_nonRandLen;
@@ -78,9 +51,6 @@ struct GoUctDefaultPlayoutPolicyStat
         Does not include the length of the move list for pure random moves.
     */
     SgUctStatistics m_moveListLen;
-
-    /** Number of moves of a certain type. */
-    boost::array<std::size_t,_GOUCT_NU_DEFAULT_PLAYOUT_TYPE> m_nuMoveType;
 
     void Clear();
 
@@ -143,12 +113,7 @@ public:
 
     void OnPlay();
 
-    /** Return the type of the last move generated. */
-    GoUctDefaultPlayoutPolicyType MoveType() const;
-
-    /** true if most recently generated move was cleanup
-        @todo Is this function still in use? If not, remove.
-    */
+    /** true if most recently generated move was cleanup */
     bool WasCleanupMove();
 
     // @} // @name
@@ -168,10 +133,20 @@ public:
     // @} // @name
 
 
+    /** Use the list of equivalent best moves to initialize prior
+        knowledge values.
+        The resulting value array is indexed by moves. If the move was pure
+        random, all init counts are 0. Otherwise the values for all equivalent
+        best moves is 1, for all other moves 0.
+        @see PriorInitCount()
+    */
+    void GetPriorKnowledge(SgArray<float,SG_PASS+1>& values,
+                           SgArray<std::size_t,SG_PASS+1>& counts);
+
     /** Return the list of equivalent best moves from last move generation.
         The played move was randomly selected from this list.
     */
-    GoPointList GetEquivalentBestMoves() const;
+    SgSList<SgPoint,SG_MAXPOINT> GetEquivalentBestMoves() const;
 
 private:
     /** A function that possibly corrects a given point */
@@ -191,7 +166,7 @@ private:
             @param[out] moves The resulting list of capture moves. The passed
             in list is expected to be empty.
         */
-        void Generate(GoPointList& moves);
+        void Generate(SgPointSList& moves);
 
     private:
         const BOARD& m_bd;
@@ -218,8 +193,10 @@ private:
     /** true if most recent move was generated in cleanup phase.  */
     bool m_wasCleanupMove;
 
-    /** Type of the last generated move. */
-    GoUctDefaultPlayoutPolicyType m_moveType;
+    /** Was the last move randomly selected from all legal moves.
+        True, if none of the non-random rules triggered.
+    */
+    bool m_wasPureRandom;
 
     /** See GoUctDefaultPlayoutPolicyStat::m_nonRandLen. */
     std::size_t m_nonRandLen;
@@ -236,7 +213,7 @@ private:
         This list is not used in GenerateMove(), if a pure random move
         is generated.
     */
-    GoPointList m_moves;
+    SgPointSList m_moves;
 
     /** The area for which moves should not be generated.
         Set by search.
@@ -256,15 +233,13 @@ private:
 
     GoUctDefaultPlayoutPolicyStat m_statistics;
 
-    /** Try to correct the proposed move, typically by moving it to a
-        'better' point such as other liberty or neighbor.
-        Examples implemented: self-ataries, clumps.
+    /** Try to correct the proposed move, typically by moving it.
+        Examples: selfataries, clumps.
     */
     bool CorrectMove(
                     GoUctDefaultPlayoutPolicy<BOARD>::Corrector& corrFunction,
-                    SgPoint& mv, GoUctDefaultPlayoutPolicyType moveType);
+                    SgPoint& mv);
 
-    /** Test whether playing on lib increases the liberties of anchor block */
     bool GainsLiberties(SgPoint anchor, SgPoint lib) const;
 
     /** Captures if last move was self-atari */
@@ -273,10 +248,9 @@ private:
     /** Generate escapes if last move was atari. */
     bool GenerateAtariDefenseMove();
 
-    /** Generate low lib moves around lastMove */
+    /** Generate low lib moves around last move */
     bool GenerateLowLibMove(SgPoint lastMove);
 
-    /** Generate pattern move around last two moves */
     bool GeneratePatternMove();
 
     void GeneratePureRandom();
@@ -335,7 +309,7 @@ void GoUctDefaultPlayoutPolicy<BOARD>::CaptureGenerator::OnPlay()
 
 template<class BOARD>
 void GoUctDefaultPlayoutPolicy<BOARD>
-::CaptureGenerator::Generate(GoPointList& moves)
+::CaptureGenerator::Generate(SgPointSList& moves)
 {
     SG_ASSERT(moves.IsEmpty());
     const SgBlackWhite opp = m_bd.Opponent();
@@ -386,7 +360,7 @@ void GoUctDefaultPlayoutPolicy<BOARD>::ClearStatistics()
 template<class BOARD>
 bool GoUctDefaultPlayoutPolicy<BOARD>::CorrectMove(
                     GoUctDefaultPlayoutPolicy<BOARD>::Corrector& corrFunction,
-                    SgPoint& mv, GoUctDefaultPlayoutPolicyType moveType)
+                    SgPoint& mv)
 {
 #if DEBUG
     const SgPoint oldMv = mv;
@@ -397,7 +371,7 @@ bool GoUctDefaultPlayoutPolicy<BOARD>::CorrectMove(
 
     m_moves.Clear();
     m_moves.Append(mv);
-    m_moveType = moveType;
+    m_wasPureRandom = false;
 
 #if DEBUG
     if (DEBUG_CORRECT_MOVE)
@@ -558,75 +532,55 @@ SgPoint GoUctDefaultPlayoutPolicy<BOARD>::GenerateMove()
     SgPoint mv = SG_NULLMOVE;
     if (m_param.m_pureRandom)
     {
-        m_moveType = GOUCT_RANDOM;
+        m_wasPureRandom = true;
         mv = m_pureRandomGenerator.Generate();
         if (mv == SG_NULLMOVE)
-        {
-            m_moveType = GOUCT_PASS;
             mv = SG_PASS;
-        }
         return mv;
     }
+    m_wasPureRandom = false;
     m_lastMove = bd.GetLastMove();
     if (   ! IsSpecialMove(m_lastMove) // skip if Pass or Null
         && ! bd.IsEmpty(m_lastMove) // skip if move was suicide
        )
     {
         if (GenerateAtariCaptureMove())
-        {
-            m_moveType = GOUCT_ATARI_CAPTURE;
             mv = SelectRandom();
-        }
         if (mv == SG_NULLMOVE && GenerateAtariDefenseMove())
-        {
-            m_moveType = GOUCT_ATARI_DEFEND;
             mv = SelectRandom();
-        }
         if (mv == SG_NULLMOVE && GenerateLowLibMove(m_lastMove))
-        {
-            m_moveType = GOUCT_LOWLIB;
             mv = SelectRandom();
-        }
         if (mv == SG_NULLMOVE && GeneratePatternMove())
-        {
-            m_moveType = GOUCT_PATTERN;
             mv = SelectRandom();
-        }
     }
     if (mv == SG_NULLMOVE)
     {
-        m_moveType = GOUCT_CAPTURE;
         m_captureGenerator.Generate(m_moves);
         mv = SelectRandom();
     }
     if (mv == SG_NULLMOVE)
     {
-        m_moveType = GOUCT_RANDOM;
+        m_wasPureRandom = true;
         mv = m_pureRandomGenerator.Generate();
     }
-
-    if (mv == SG_NULLMOVE)
-    {
-        m_moveType = GOUCT_PASS;
-        mv = SG_PASS;
-    }
-    else
-    {
-        SG_ASSERT(bd.IsLegal(mv));
-        m_checked = CorrectMove(GoUctUtil::DoSelfAtariCorrection, mv,
-                                GOUCT_SELFATARI_CORRECTION);
-        SG_ASSERT(m_wasCleanupMove || ! m_allSafe[mv]);
-        if (m_param.m_useClumpCorrection && ! m_checked)
-            CorrectMove(GoUctUtil::DoClumpCorrection, mv,
-                        GOUCT_CLUMP_CORRECTION);
-    }
-    SG_ASSERT(mv == SG_PASS || m_wasCleanupMove || ! m_allSafe[mv]);
-    SG_ASSERT(bd.IsLegal(mv));
-    SG_ASSERT(mv == SG_PASS || ! bd.IsSuicide(mv));
 
     if (m_param.m_statisticsEnabled)
         UpdateStatistics();
 
+    if (mv == SG_NULLMOVE)
+        mv = SG_PASS;
+    else
+    {
+        SG_ASSERT(bd.IsLegal(mv));
+        m_checked =
+            CorrectMove(GoUctUtil::DoSelfAtariCorrection, mv);
+        SG_ASSERT(m_wasCleanupMove || ! m_allSafe[mv]);
+        if (m_param.m_useClumpCorrection && ! m_checked)
+            CorrectMove(GoUctUtil::DoClumpCorrection, mv);
+    }
+    SG_ASSERT(mv == SG_PASS || m_wasCleanupMove || ! m_allSafe[mv]);
+    SG_ASSERT(bd.IsLegal(mv));
+    SG_ASSERT(mv == SG_PASS || ! bd.IsSuicide(mv));
     return mv;
 }
 
@@ -674,28 +628,49 @@ bool GoUctDefaultPlayoutPolicy<BOARD>::GeneratePoint(SgPoint p) const
 }
 
 template<class BOARD>
-GoPointList GoUctDefaultPlayoutPolicy<BOARD>::GetEquivalentBestMoves() const
+SgSList<SgPoint,SG_MAXPOINT>
+GoUctDefaultPlayoutPolicy<BOARD>::GetEquivalentBestMoves() const
 {
-    GoPointList result;
+    SgSList<SgPoint,SG_MAXPOINT> result;
     const BOARD& bd = GoUctPlayoutPolicy<BOARD>::Board();
-    if (m_moveType == GOUCT_RANDOM)
+    if (m_wasPureRandom)
     {
         for (typename BOARD::Iterator it(bd); it; ++it)
             if (bd.IsEmpty(*it) && GeneratePoint(*it))
                 result.Append(*it);
     }
     // Move in m_moves are not checked yet, if legal etc.
-    for (GoPointList::Iterator it(m_moves); it; ++it)
+    for (SgPointSList::Iterator it(m_moves); it; ++it)
         if (m_checked || GeneratePoint(*it))
             result.Append(*it);
     return result;
 }
 
 template<class BOARD>
-GoUctDefaultPlayoutPolicyType GoUctDefaultPlayoutPolicy<BOARD>::MoveType()
-    const
+void GoUctDefaultPlayoutPolicy<BOARD>
+::GetPriorKnowledge(SgArray<float,SG_PASS+1>& values,
+                    SgArray<std::size_t,SG_PASS+1>& counts)
 {
-    return m_moveType;
+    StartPlayout();
+    GenerateMove();
+    if (m_wasPureRandom)
+        counts.Fill(0);
+    else
+    {
+        const BOARD& bd = GoUctPlayoutPolicy<BOARD>::Board();
+        values[SG_PASS] = 0;
+        for (typename BOARD::Iterator it(bd); it; ++it)
+            if (bd.IsEmpty(*it) && GoBoardUtil::SelfAtari(bd, *it))
+                values[*it] = 0;
+            else
+                values[*it] = 0.5;
+        for (SgPointSList::Iterator it(m_moves); it; ++it)
+            // Move in m_moves are not checked yet, if legal etc.
+            if (GoUctUtil::GeneratePoint<BOARD>(bd, *it, bd.ToPlay()))
+                values[*it] = 1;
+        counts.Fill(9);
+    }
+    EndPlayout();
 }
 
 template<class BOARD>
@@ -731,14 +706,14 @@ template<class BOARD>
 void GoUctDefaultPlayoutPolicy<BOARD>::UpdateStatistics()
 {
     ++m_statistics.m_nuMoves;
-    ++m_statistics.m_nuMoveType[m_moveType];
-    if (m_moveType == GOUCT_RANDOM)
+    if (m_wasPureRandom)
     {
         if (m_nonRandLen > 0)
         {
             m_statistics.m_nonRandLen.Add(m_nonRandLen);
             m_nonRandLen = 0;
         }
+        ++m_statistics.m_nuRandMoves;
     }
     else
     {
@@ -792,6 +767,48 @@ GoUctDefaultPlayoutPolicyFactory<BOARD>::Create(const BOARD& bd)
                                 *GoUctPlayoutPolicyFactory<BOARD>::m_safe,
                                 *GoUctPlayoutPolicyFactory<BOARD>::m_allSafe);
 }
+
+//----------------------------------------------------------------------------
+
+/** Uses GoUctDefaultPlayoutPolicy to generate prior knowledge.
+    See GoUctDefaultPlayoutPolicy::GetPriorKnowledge
+*/
+class GoUctPolicyPriorKnowledge
+    : public SgUctPriorKnowledge
+{
+public:
+    GoUctPolicyPriorKnowledge(const GoBoard& bd,
+                              const GoUctDefaultPlayoutPolicyParam& param,
+                              const SgBWSet& safe,
+                              const SgPointArray<bool>& allSafe);
+
+    void ProcessPosition();
+
+    void InitializeMove(SgMove move, float& value, std::size_t& count);
+
+private:
+    GoUctDefaultPlayoutPolicy<GoBoard> m_policy;
+
+    SgArray<float,SG_PASS+1> m_values;
+
+    SgArray<std::size_t,SG_PASS+1> m_counts;
+};
+
+//----------------------------------------------------------------------------
+
+class GoUctPolicyPriorKnowledgeFactory
+    : public SgUctPriorKnowledgeFactory
+{
+public:
+    /** Stores a reference to param */
+    GoUctPolicyPriorKnowledgeFactory(const GoUctDefaultPlayoutPolicyParam&
+                                     param);
+
+    SgUctPriorKnowledge* Create(SgUctThreadState& state);
+
+private:
+    const GoUctDefaultPlayoutPolicyParam& m_param;
+};
 
 //----------------------------------------------------------------------------
 

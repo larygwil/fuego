@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------
 /** @file GoBlock.cpp
-    See GoBlock.h.
+    @see GoBlock.h.
 */
 //----------------------------------------------------------------------------
 
@@ -93,7 +93,7 @@ void GoBlock::Write(std::ostream& stream) const
 
 void GoBlock::WriteID(std::ostream& stream) const
 {
-    stream << ' ' << SgBW(Color())
+    stream << ' ' << BW(Color())
            << " Block " << SgWritePoint(Anchor());
 }
 

@@ -15,15 +15,8 @@
         go [label="Go", color=black]
         sg -> go
 
-        sp [label="SimplePlayers", color=black]
-        go -> sp
-
         gouct [label="GoUct", color=black]
         go -> gouct
-
-        fuegotest [label="FuegoTest", color=blue]
-        gouct -> fuegotest
-        sp -> fuegotest
 
         fuegomain [label="FuegoMain", color=blue]
         gouct -> fuegomain

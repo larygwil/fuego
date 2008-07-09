@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------
 /** @file GoBoardUtil.cpp
-    See GoBoardUtil.h
+    @see GoBoardUtil.h
 */
 //----------------------------------------------------------------------------
 
@@ -51,41 +51,13 @@ void GoBoardUtil::AddWall(GoBoard& bd,
     }
 }
 
-GoPointList GoBoardUtil::AdjacentStones(const GoBoard& bd, SgPoint point)
-{
-    SG_ASSERT(bd.IsValidPoint(point));
-    SG_ASSERT(bd.Occupied(point));
-    const SgBlackWhite other = SgOppBW(bd.GetStone(point));
-    GoPointList result;
-    SgMarker& mark = bd.m_userMarker;
-    SgReserveMarker reserve(mark);
-    SG_UNUSED(reserve);
-    mark.Clear();
-    for (GoBoard::StoneIterator it(bd, point); it; ++it)
-    {
-        if (bd.NumNeighbors(*it, other) > 0)
-        {
-            SgPoint p = *it;
-            if (bd.IsColor(p - SG_NS, other) && mark.NewMark(p - SG_NS))
-                result.Append(p - SG_NS);
-            if (bd.IsColor(p - SG_WE, other) && mark.NewMark(p - SG_WE))
-                result.Append(p - SG_WE);
-            if (bd.IsColor(p + SG_WE, other) && mark.NewMark(p + SG_WE))
-                result.Append(p + SG_WE);
-            if (bd.IsColor(p + SG_NS, other) && mark.NewMark(p + SG_NS))
-                result.Append(p + SG_NS);
-        }
-    };
-    return result;
-}
-
 void GoBoardUtil::AdjacentStones(const GoBoard& bd, SgPoint point,
                                  SgList<SgPoint>* stones)
 {
     SG_ASSERT(stones);
     SG_ASSERT(bd.IsValidPoint(point));
     SG_ASSERT(bd.Occupied(point));
-    const SgBlackWhite other = SgOppBW(bd.GetStone(point));
+    const SgBlackWhite other = OppBW(bd.GetStone(point));
     SgPoint a[SG_MAXPOINT];
     int n = 0;
     SgMarker& mark = bd.m_userMarker;
@@ -239,7 +211,7 @@ void GoBoardUtil::DumpBoard(const GoBoard& bd, std::ostream& out)
             SgBlackWhite c = *it;
             int stoneNumber = 0;
             out << (c == SG_BLACK ? "AB" : "AW");
-            for (GoPointList::Iterator it2(setup.m_stones[c]); it2; ++it2)
+            for (SgPointSList::Iterator it2(setup.m_stones[c]); it2; ++it2)
             {
                 SgPoint p = *it2;
                 ++stoneNumber;
@@ -308,7 +280,7 @@ bool GoBoardUtil::EndOfGame(const GoBoard& bd)
 {
     SgBlackWhite toPlay = bd.ToPlay();
     GoPlayerMove passToPlay(toPlay, SG_PASS);
-    GoPlayerMove passOpp(SgOppBW(toPlay), SG_PASS);
+    GoPlayerMove passOpp(OppBW(toPlay), SG_PASS);
     int moveNumber = bd.MoveNumber();
     if (bd.Rules().TwoPassesEndGame())
     {
@@ -362,7 +334,7 @@ bool GoBoardUtil::HasAdjacentBlocks(const GoBoard& bd, SgPoint p,
                                     int maxLib)
 {
     SG_ASSERT(bd.Occupied(p));
-    const SgBlackWhite other = SgOppBW(bd.GetStone(p));
+    const SgBlackWhite other = OppBW(bd.GetStone(p));
     for (GoBoard::StoneIterator stone(bd, p); stone; ++stone)
         for (SgNb4Iterator nb(*stone); nb; ++nb)
             if (bd.IsColor(*nb, other) && bd.AtMostNumLibs(*nb, maxLib))
@@ -439,8 +411,8 @@ bool GoBoardUtil::IsSnapback(const GoBoard& constBd, SgPoint p)
         const SgPoint lib = constBd.TheLiberty(p);
         GoModBoard mbd(constBd);
         GoBoard& bd = mbd.Board();
-        const bool isLegal =
-            GoBoardUtil::PlayIfLegal(bd, lib, SgOppBW(bd.GetStone(p)));
+        const bool isLegal = GoBoardUtil::PlayIfLegal(bd, lib,
+                                                      OppBW(bd.GetStone(p)));
         if (   isLegal
             && bd.InAtari(lib)
             && ! bd.IsSingleStone(lib)
@@ -476,21 +448,6 @@ bool GoBoardUtil::ManySecondaryLibs(const GoBoard& bd, SgPoint block)
         }
     }
     return (nu >= limit);
-}
-
-SgSList<SgPoint,4> GoBoardUtil::NeighborsOfColor(const GoBoard& bd, SgPoint p,
-                                                 int c)
-{
-    SgSList<SgPoint,4> result;
-    if (bd.IsColor(p - SG_NS, c))
-        result.Append(p - SG_NS);
-    if (bd.IsColor(p - SG_WE, c))
-        result.Append(p - SG_WE);
-    if (bd.IsColor(p + SG_WE, c))
-        result.Append(p + SG_WE);
-    if (bd.IsColor(p + SG_NS, c))
-        result.Append(p + SG_NS);
-    return result;
 }
 
 void GoBoardUtil::NeighborsOfColor(const GoBoard& bd, SgPoint p, int c,
@@ -558,9 +515,20 @@ void GoBoardUtil::ReduceToAnchors(const GoBoard& bd,
                                   SgSList<SgPoint,SG_MAXPOINT>& anchors)
 {
     anchors.Clear();
-    for (SgListIterator<SgPoint> it(stones); it; ++it)
-        if (bd.Occupied(*it))
-            anchors.Include(*it);
+    for (SgListIterator<SgPoint> stone(stones); stone; ++stone)
+    {
+        if (bd.Occupied(*stone))
+        {
+            for (int i = anchors.Length() - 1; i >= 0; --i)
+            {
+                if (bd.Anchor(*stone) == anchors[i])
+                    goto LB_RTA;
+            }
+            anchors.Append(bd.Anchor(*stone));
+        }
+    LB_RTA:
+        continue;
+    }
 }
 
 void GoBoardUtil::RegionCode(const GoBoard& bd, const SgList<SgPoint>& region,
@@ -693,7 +661,7 @@ void GoBoardUtil::TestForChain(GoBoard& bd, SgPoint block, SgPoint block2,
     else // protected lib.
     {
         GoRestoreToPlay r(bd);
-        bd.SetToPlay(SgOppBW(bd.GetStone(block)));
+        bd.SetToPlay(OppBW(bd.GetStone(block)));
         if (MoveNotLegalOrAtari(bd, lib))
             extended->Append(block);
     }
@@ -709,8 +677,8 @@ bool GoBoardUtil::HasStonesOfBothColors(const GoBoard& bd,
         {
             SgBlackWhite color(bd.GetStone(*it));
             has[color] = true;
-            if (has[SgOppBW(color)])
-                return true;
+            if (has[OppBW(color)])
+                /* */ return true; /* */
         }
     }
     return false;
@@ -736,6 +704,92 @@ bool GoBoardUtil::IsCapturingMove(const GoBoard& bd, SgPoint p)
     return anchors[0] != SG_ENDPOINT;
 }
 
+template<class BOARD>
+bool GoBoardUtil::SelfAtari(const BOARD& bd, SgPoint p, int& numStones,
+                            bool countStones)
+{
+    ASSERT(bd.IsEmpty(p));
+    // No self-atari, enough liberties
+    if (bd.NumEmptyNeighbors(p) >= 2)
+        return false;
+    const SgBlackWhite toPlay = bd.ToPlay();
+    const SgBlackWhite opp = OppBW(toPlay);
+    SgPoint lib = SG_NULLPOINT;
+    bool hasOwnNb = false;
+    bool hasCapture = false;
+    for (SgNb4Iterator it(p); it; ++it)
+    {
+        const SgPoint nb = *it;
+        const SgBlackWhite nbColor = bd.GetColor(nb);
+        if (nbColor == SG_EMPTY)
+        {
+            if (lib == SG_NULLPOINT)
+                lib = nb;
+            else if (lib != nb)
+                return false;
+        }
+        else if (nbColor == toPlay) // own stones
+        {
+            if (bd.NumLiberties(nb) > 2)
+                return false;
+            else // check block's liberties other than p
+                for (GoBoard::LibertyIterator it(bd, nb); it; ++it)
+                {
+                    if (*it != p)
+                    {
+                        if (lib == SG_NULLPOINT)
+                            lib = *it;
+                        else if (lib != *it)
+                            return false;
+                    }
+                }
+            hasOwnNb = true;
+        }
+        else if (nbColor == opp) // opponent stones - count as lib if in atari
+        {
+            if (bd.InAtari(nb))
+            {
+                if (lib == SG_NULLPOINT)
+                {
+                    lib = *it;
+                    hasCapture = true;
+                }
+                else if (lib != *it)
+                    return false;
+            }
+        }
+    }
+
+    if (lib == SG_NULLPOINT) // suicide
+        return false;
+    if (! hasOwnNb && hasCapture) // ko-type capture, OK
+         return false;
+    if (hasOwnNb && hasCapture) // check if we gained other liberties
+    {
+        // lib == one of the captured stones.
+       SgPoint anchors[4 + 1];
+       bd.NeighborBlocks(p, toPlay, 1, anchors);
+       ASSERT(bd.IsColor(lib, opp));
+       for (GoBoard::StoneIterator it(bd, lib); it; ++it)
+       {
+           if (*it != lib && IsNeighborOfSome(bd, *it, anchors, toPlay))
+               return false;
+       }
+    }
+    if (countStones)
+    {
+        numStones = 1;
+        if (hasOwnNb)
+        {
+            SgPoint anchors[4 + 1];
+            bd.NeighborBlocks(p, toPlay, 1, anchors);
+            for (int i = 0; anchors[i] != SG_ENDPOINT; ++i)
+                numStones += bd.NumStones(anchors[i]);
+        }
+    }
+    return true;
+}
+
 int GoBoardUtil::Stones(const GoBoard& bd, SgPoint p, SgPoint stones[])
 {
     SG_ASSERT(bd.IsValidPoint(p));
@@ -758,7 +812,7 @@ bool GoBoardUtil::TwoPasses(const GoBoard& bd)
 {
     SgBlackWhite toPlay = bd.ToPlay();
     GoPlayerMove passToPlay(toPlay, SG_PASS);
-    GoPlayerMove passOpp(SgOppBW(toPlay), SG_PASS);
+    GoPlayerMove passOpp(OppBW(toPlay), SG_PASS);
     int moveNumber = bd.MoveNumber();
     return (   moveNumber >= 2
             && bd.Move(moveNumber - 1) == passOpp
@@ -784,7 +838,7 @@ SgRect GoBoardUtil::GetDirtyRegion(const GoBoard& bd, SgMove move,
     if (move == SG_PASS)
         return dirty;
 
-    SgBlackWhite opp = SgOppBW(colour);
+    SgBlackWhite opp = OppBW(colour);
 
     // Point played has changed
     dirty.Include(move);
@@ -825,9 +879,9 @@ SgRect GoBoardUtil::GetDirtyRegion(const GoBoard& bd, SgMove move,
     }
 
     // Check if this move did make a capture
-    if (! premove && bd.CapturingMove())
+    if (!premove && bd.CapturingMove())
     {
-        for (GoPointList::Iterator icaptures(bd.CapturedStones()); icaptures;
+        for (SgPointSListIterator icaptures(bd.CapturedStones()); icaptures;
              ++icaptures)
         {
             dirty.Include(*icaptures);

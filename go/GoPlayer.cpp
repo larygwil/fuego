@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------
 /** @file GoPlayer.cpp
-    See GoPlayer.h
+    @see GoPlayer.h
 */
 //----------------------------------------------------------------------------
 
@@ -35,11 +35,6 @@ int GoPlayer::MoveValue(SgPoint p)
 {
     SG_UNUSED(p);
     return numeric_limits<int>::min();
-}
-
-std::string GoPlayer::Name() const
-{
-    return "Unknown";
 }
 
 void GoPlayer::OnGameFinished()

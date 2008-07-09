@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
+#include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
 #include <boost/version.hpp>
 #include "SgDebug.h"
@@ -22,6 +23,7 @@ using boost::condition;
 using boost::format;
 using boost::mutex;
 using boost::shared_ptr;
+using boost::trim_copy;
 
 #define BOOST_VERSION_MAJOR (BOOST_VERSION / 100000)
 #define BOOST_VERSION_MINOR (BOOST_VERSION / 100 % 1000)
@@ -214,8 +216,8 @@ SgUctSearch::SgUctSearch(SgUctThreadStateFactory* threadStateFactory,
     : m_threadStateFactory(threadStateFactory),
       m_logGames(false),
       m_rave(false),
-      m_noBiasTerm(false),
       m_moveSelect(SG_UCTMOVESELECT_COUNT),
+      m_priorInit(SG_UCTPRIORINIT_BOTH),
       m_raveCheckSame(false),
       m_lockFree(false),
       m_useSignatures(false),
@@ -493,15 +495,10 @@ float SgUctSearch::GetBound(std::size_t posCount, float logPosCount,
         value = GetValueEstimateRaveNoSig(child);
     else
         value = GetValueEstimate(child);
-    if (m_noBiasTerm)
-        return value;
-    else
-    {
-        size_t moveCount = child.MoveCount();
-        float bound = value + m_biasTermConstant
-            * m_biasTermPrecomp.Get(posCount, logPosCount, moveCount + 1);
-        return bound;
-    }
+    size_t moveCount = child.MoveCount();
+    float bound = value + m_biasTermConstant
+        * m_biasTermPrecomp.Get(posCount, logPosCount, moveCount + 1);
+    return bound;
 }
 
 const SgUctStatisticsBaseVolatile& SgUctSearch::GetSignatureStat(SgMove mv)
@@ -617,7 +614,6 @@ void SgUctSearch::InitPriorKnowledge(SgUctThreadState& state,
     SgUctPriorKnowledge* priorKnowledge = state.m_priorKnowledge.get();
     SG_ASSERT(priorKnowledge != 0);
     priorKnowledge->ProcessPosition();
-    size_t posCount = 0;
     for (SgUctChildIterator it(m_tree, node); it; ++it)
     {
         const SgUctNode& child = *it;
@@ -627,12 +623,14 @@ void SgUctSearch::InitPriorKnowledge(SgUctThreadState& state,
         priorKnowledge->InitializeMove(move, value, count);
         if (count == 0)
             continue;
-        m_tree.InitializeValue(child, InverseEval(value), count);
-        posCount += count;
-        if (m_rave)
+        if (m_priorInit == SG_UCTPRIORINIT_MOVE
+            || m_priorInit == SG_UCTPRIORINIT_BOTH)
+            m_tree.InitializeValue(node, child, InverseEval(value), count);
+        if (m_rave &&
+            (m_priorInit == SG_UCTPRIORINIT_RAVE
+             || m_priorInit == SG_UCTPRIORINIT_BOTH))
             m_tree.InitializeRaveValue(child, value, count);
     }
-    m_tree.SetPosCount(node, posCount);
 }
 
 string SgUctSearch::LastGameSummaryLine() const
@@ -776,7 +774,7 @@ bool SgUctSearch::PlayInTree(SgUctThreadState& state,
     return true;
 }
 
-/** Finish the game using GeneratePlayoutMove().
+/** Finish the game using GenerateRandomMove().
     @param state The thread state.
     @param playout The number of the playout.
     @return @c false if game was aborted
@@ -792,12 +790,12 @@ bool SgUctSearch::PlayoutGame(SgUctThreadState& state, std::size_t playout)
         if (sequence.size() == m_maxGameLength)
             return false;
         bool skipRave = false;
-        SgMove move = state.GeneratePlayoutMove(skipRave);
+        SgMove move = state.GenerateRandomMove(skipRave);
         if (move == SG_NULLMOVE)
             break;
         if (m_useSignatures)
             signatures.push_back(state.GetSignature(move));
-        state.ExecutePlayout(move);
+        state.Execute(move);
         sequence.push_back(move);
         skipRaveUpdate.push_back(skipRave);
     }
@@ -920,7 +918,6 @@ SgPoint SgUctSearch::SearchOnePly(size_t maxGames, double maxTime,
 
 const SgUctNode& SgUctSearch::SelectChild(const SgUctNode& node)
 {
-    SG_ASSERT(node.HasChildren());
     size_t posCount = node.PosCount();
     if (posCount == 0)
         // If position count is zero, return first child
@@ -999,12 +996,15 @@ void SgUctSearch::StartSearch(const vector<SgMove>& rootFilter,
         // to the total real time, even if there is no other load on the
         // machine, because the time, while threads are waiting for a lock
         // does not contribute to the cputime.
-        SgWarning() << "SgUctSearch: using cpu time with multiple threads\n";
+        SgDebug() <<
+            "WARNING: SgUctSearch: "
+            "using cpu time with multiple threads\n";
     if (m_useSignatures)
     {
         size_t range = SignatureRange();
         if (range == 0)
-            SgWarning() << "SgUctSearch: signatures enabled but range is 0\n";
+            SgDebug() <<
+                "WARNING: SgUctSearch: signatures enabled but range is 0\n";
         m_signatureStat.resize(range);
         for (size_t i = 0; i < range; ++i)
             m_signatureStat[i].Clear();
@@ -1021,8 +1021,8 @@ void SgUctSearch::StartSearch(const vector<SgMove>& rootFilter,
         if (m_tree.HasCapacity(0, m_tree.Root().NuChildren()))
             m_tree.ApplyFilter(0, m_tree.Root(), rootFilter);
         else
-            SgWarning() <<
-                "SgUctSearch::StartSearch: "
+            SgDebug() <<
+                "WARNING: SgUctSearch::StartSearch: "
                 "root filter not applied (tree reached maximum size)\n";
     }
     m_gameLengthStat.Clear();

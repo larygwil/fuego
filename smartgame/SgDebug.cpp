@@ -23,7 +23,7 @@ static ofstream s_nullStream;
 
 static auto_ptr<ofstream> s_fileStream;
 
-#if UNIX
+#if UNIX 
 #define textoutputstream cerr
 #else
 #define textoutputstream cout
@@ -35,17 +35,11 @@ std::ostream& SgDebug()
 {
     if (! g_debugStrPtr->good())
     {
-        // does not just use a direct SG_ASSERT(g_debugStrPtr->good())
+        // does not just use a direct ASSERT(g_debugStrPtr->good())
         // in order to allow a breakpoint to be set on the line below.
         SG_ASSERT(false);
     }
     return *g_debugStrPtr;
-}
-
-std::ostream& SgWarning()
-{
-    SgDebug() << "WARNING: ";
-    return SgDebug();
 }
 
 //----------------------------------------------------------------------------

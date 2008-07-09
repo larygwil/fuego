@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------
 /** @file SgSystem.cpp
-    See SgSystem.h
+    @see SgSystem.h
  */
 //----------------------------------------------------------------------------
 
@@ -58,14 +58,14 @@ SgAssertionHandler::~SgAssertionHandler()
 
 #if MW_COMPILER
 /** On Metrowerks compiler, always drop into the debugger
-    instead of aborting the program whenever an SG_ASSERT fails
+    instead of aborting the program whenever an ASSERT fails
 */
 static bool s_assert_continue = true;
 #else
-/** Set the shell variable SMARTGAME_ASSERT_CONTINUE to drop into the debugger
-    instead of aborting the program whenever an SG_ASSERT fails
+/** Set the shell variable EXPLORER_ASSERT_CONTINUE to drop into the debugger
+    instead of aborting the program whenever an ASSERT fails
 */
-static bool s_assertContinue = std::getenv("SMARTGAME_ASSERT_CONTINUE");
+static bool s_assertContinue = std::getenv("EXPLORER_ASSERT_CONTINUE");
 #endif
 
 void SgHandleAssertion(const char* expr, const char* file, int line)

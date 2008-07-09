@@ -91,6 +91,34 @@ string MoveSelectToString(SgUctMoveSelect moveSelect)
     }
 }
 
+SgUctPriorInit PriorInitArg(const GtpCommand& cmd, size_t number)
+{
+    string arg = cmd.ArgToLower(number);
+    if (arg == "move")
+        return SG_UCTPRIORINIT_MOVE;
+    if (arg == "rave")
+        return SG_UCTPRIORINIT_RAVE;
+    if (arg == "both")
+        return SG_UCTPRIORINIT_BOTH;
+    throw GtpFailure() << "unknown prior init argument \"" << arg << '"';
+}
+
+string PriorInitToString(SgUctPriorInit priorInit)
+{
+    switch (priorInit)
+    {
+    case SG_UCTPRIORINIT_MOVE:
+        return "move";
+    case SG_UCTPRIORINIT_RAVE:
+        return "rave";
+    case SG_UCTPRIORINIT_BOTH:
+        return "both";
+    default:
+        SG_ASSERT(false);
+        return "?";
+    }
+}
+
 GoUctGlobalSearchPrior PriorKnowledgeArg(const GtpCommand& cmd, size_t number)
 {
     string arg = cmd.ArgToLower(number);
@@ -98,8 +126,8 @@ GoUctGlobalSearchPrior PriorKnowledgeArg(const GtpCommand& cmd, size_t number)
         return GOUCT_PRIORKNOWLEDGE_NONE;
     if (arg == "even")
         return GOUCT_PRIORKNOWLEDGE_EVEN;
-    if (arg == "default")
-        return GOUCT_PRIORKNOWLEDGE_DEFAULT;
+    if (arg == "policy")
+        return GOUCT_PRIORKNOWLEDGE_POLICY;
     throw GtpFailure() << "unknown prior knowledge argument \"" << arg << '"';
 }
 
@@ -111,8 +139,8 @@ string PriorKnowledgeToString(GoUctGlobalSearchPrior prior)
         return "none";
     case GOUCT_PRIORKNOWLEDGE_EVEN:
         return "even";
-    case GOUCT_PRIORKNOWLEDGE_DEFAULT:
-        return "default";
+    case GOUCT_PRIORKNOWLEDGE_POLICY:
+        return "policy";
     default:
         SG_ASSERT(false);
         return "?";
@@ -168,7 +196,7 @@ void GoUctCommands::AddGoGuiAnalyzeCommands(GtpCommand& cmd)
         "param/Uct Param Player/uct_param_player\n"
         "param/Uct Param Search/uct_param_search\n"
         "plist/Uct Patterns/uct_patterns\n"
-        "pstring/Uct Policy Moves/uct_policy_moves\n"
+        "plist/Uct Policy Moves/uct_policy_moves\n"
         "sboard/Uct Rave Values/uct_rave_values\n"
         "plist/Uct Root Filter/uct_root_filter\n"
         "none/Uct SaveGames/uct_savegames %w\n"
@@ -294,7 +322,6 @@ void GoUctCommands::CmdParamGlobalSearch(GtpCommand& cmd)
     This command is compatible with the GoGui analyze command type "param".
 
     Parameters:
-    @arg @c auto_param See GoUctGlobalSearchPlayer::AutoParam
     @arg @c ignore_clock See GoUctGlobalSearchPlayer::IgnoreClock
     @arg @c reuse_subtree See GoUctGlobalSearchPlayer::ReuseSubtree
     @arg @c max_games See GoUctGlobalSearchPlayer::MaxGames
@@ -315,8 +342,7 @@ void GoUctCommands::CmdParamPlayer(GtpCommand& cmd)
     {
         // Boolean parameters first for better layout of GoGui parameter
         // dialog, alphabetically otherwise
-        cmd << "[bool] auto_param " << p.AutoParam() << '\n'
-            << "[bool] ignore_clock " << p.IgnoreClock() << '\n'
+        cmd << "[bool] ignore_clock " << p.IgnoreClock() << '\n'
             << "[bool] ponder " << p.EnablePonder() << '\n'
             << "[bool] prune_root_moves " << p.PruneRootMoves() << '\n'
             << "[bool] reuse_subtree " << p.ReuseSubtree() << '\n'
@@ -324,7 +350,7 @@ void GoUctCommands::CmdParamPlayer(GtpCommand& cmd)
             << "[string] max_nodes " << p.MaxNodes() << '\n'
             << "[string] max_time " << p.MaxTime() << '\n'
             << "[string] monitor_stat_file " << p.MonitorStatFile() << '\n'
-            << "[list/none/even/default] prior_knowledge "
+            << "[list/none/even/policy] prior_knowledge "
             << PriorKnowledgeToString(p.PriorKnowledge()) << '\n'
             << "[string] resign_threshold " << p.ResignThreshold() << '\n'
             << "[list/playout_policy/uct/one_ply] search_mode "
@@ -333,9 +359,7 @@ void GoUctCommands::CmdParamPlayer(GtpCommand& cmd)
     else if (cmd.NuArg() >= 1 && cmd.NuArg() <= 2)
     {
         string name = cmd.Arg(0);
-        if (name == "auto_param")
-            p.SetAutoParam(cmd.BoolArg(1));
-        else if (name == "ignore_clock")
+        if (name == "ignore_clock")
             p.SetIgnoreClock(cmd.BoolArg(1));
         else if (name == "ponder")
             p.SetEnablePonder(cmd.BoolArg(1));
@@ -408,8 +432,9 @@ void GoUctCommands::CmdParamPolicy(GtpCommand& cmd)
     Parameters:
     @arg @c keep_games See GoUctSearch::KeepGames
     @arg @c lock_free See SgUctSearch::LockFree
-    @arg @c log_games See SgUctSearch::LogGames
-    @arg @c no_bias_term See SgUctSearch::NoBiasTerm
+    @arg @c log_games See GoUctSearch::LogGames
+    @arg @c number_threads See GoUctSearch::NumberThreads
+    @arg @c number_playouts See GoUctSearch::NumberPlayouts
     @arg @c rave See SgUctSearch::Rave
     @arg @c rave_check_same SgUctSearch::RaveCheckSame
     @arg @c use_signatures SgUctSearch::UseSignatures
@@ -419,8 +444,7 @@ void GoUctCommands::CmdParamPolicy(GtpCommand& cmd)
     @arg @c live_gfx @c none|counts|sequence See GoUctSearch::LiveGfx
     @arg @c live_gfx_interval See GoUctSearch::LiveGfxInterval
     @arg @c move_select @c value|count|bound|rave See SgUctSearch::MoveSelect
-    @arg @c number_threads See SgUctSearch::NumberThreads
-    @arg @c number_playouts See SgUctSearch::NumberPlayouts
+    @arg @c prior_init @c move|rave|both See SgUctSearch::PriorInit
     @arg @c rave_weight_final See SgUctSearch::RaveWeightFinal
     @arg @c rave_weight_initial See SgUctSearch::RaveWeightInitial
     @arg @c signature_weight_final See SgUctSearch::SignatureWeightFinal
@@ -437,7 +461,6 @@ void GoUctCommands::CmdParamSearch(GtpCommand& cmd)
         cmd << "[bool] keep_games " << s.KeepGames() << '\n'
             << "[bool] lock_free " << s.LockFree() << '\n'
             << "[bool] log_games " << s.LogGames() << '\n'
-            << "[bool] no_bias_term " << s.NoBiasTerm() << '\n'
             << "[bool] rave " << s.Rave() << '\n'
             << "[bool] rave_check_same " << s.RaveCheckSame() << '\n'
             << "[bool] use_signatures " << s.UseSignatures() << '\n'
@@ -451,6 +474,8 @@ void GoUctCommands::CmdParamSearch(GtpCommand& cmd)
             << MoveSelectToString(s.MoveSelect()) << '\n'
             << "[string] number_threads " << s.NumberThreads() << '\n'
             << "[string] number_playouts " << s.NumberPlayouts() << '\n'
+            << "[list/move/rave/both] prior_init "
+            << PriorInitToString(s.PriorInit()) << '\n'
             << "[string] rave_weight_final " << s.RaveWeightFinal() << '\n'
             << "[string] rave_weight_initial "
             << s.RaveWeightInitial() << '\n'
@@ -469,8 +494,6 @@ void GoUctCommands::CmdParamSearch(GtpCommand& cmd)
             s.SetLockFree(cmd.BoolArg(1));
         else if (name == "log_games")
             s.SetLogGames(cmd.BoolArg(1));
-        else if (name == "no_bias_term")
-            s.SetNoBiasTerm(cmd.BoolArg(1));
         else if (name == "rave")
             s.SetRave(cmd.BoolArg(1));
         else if (name == "rave_check_same")
@@ -493,6 +516,8 @@ void GoUctCommands::CmdParamSearch(GtpCommand& cmd)
             s.SetNumberThreads(cmd.SizeTypeArg(1, 1));
         else if (name == "number_playouts")
             s.SetNumberPlayouts(cmd.IntArg(1, 1));
+        else if (name == "prior_init")
+            s.SetPriorInit(PriorInitArg(cmd, 1));
         else if (name == "rave_weight_final")
             s.SetRaveWeightFinal(cmd.FloatArg(1));
         else if (name == "rave_weight_initial")
@@ -521,10 +546,10 @@ void GoUctCommands::CmdPatterns(GtpCommand& cmd)
             cmd << SgWritePoint(*it) << ' ';
 }
 
-/** Return equivalent best moves in playout policy.
+/** Return list of equivalent best moves in playout policy.
     See GoUctDefaultPlayoutPolicy::GetEquivalentBestMoves() <br>
     Arguments: none <br>
-    Returns: Move type string followed by move list on a single line.
+    Returns: List of points.
 */
 void GoUctCommands::CmdPolicyMoves(GtpCommand& cmd)
 {
@@ -536,10 +561,13 @@ void GoUctCommands::CmdPolicyMoves(GtpCommand& cmd)
                                               safe, allSafe);
     policy.StartPlayout();
     policy.GenerateMove();
-    cmd << GoUctDefaultPlayoutPolicyTypeStr(policy.MoveType());
-    GoPointList moves = policy.GetEquivalentBestMoves();
+    SgSList<SgPoint,SG_MAXPOINT> moves = policy.GetEquivalentBestMoves();
     for (int i = 0; i < moves.Length(); ++i)
-        cmd << ' ' << SgWritePoint(moves[i]);
+    {
+        if (i > 0)
+            cmd << ' ';
+        cmd << SgWritePoint(moves[i]);
+    }
 }
 
 /** Show RAVE values of last search at root position.
@@ -713,10 +741,11 @@ void GoUctCommands::CmdSignatureValue(GtpCommand& cmd)
         {
             try
             {
-                if (search.GetSignatureStat(sig).Count() > 0)
+                size_t count = search.GetSignatureStat(sig).Count();
+                if (count > 0)
                 {
-                    float mean = search.GetSignatureStat(sig).Mean();
-                    array[p] = str(format("%.2f") % mean);
+                    float value = search.GetSignatureStat(sig).Mean();
+                    array[p] = str(format("%.2f") % value);
                 }
             }
             catch (const SgException& e)
@@ -759,8 +788,6 @@ void GoUctCommands::CmdStatPlayerClear(GtpCommand& cmd)
 void GoUctCommands::CmdStatPolicy(GtpCommand& cmd)
 {
     cmd.CheckArgNone();
-    if (! Player().m_playoutPolicyParam.m_statisticsEnabled)
-        SgWarning() << "statistics not enabled in policy parameters\n";
     Policy(0).Statistics().Write(cmd);
 }
 

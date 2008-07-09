@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------
 /** @file SgSearch.cpp
-    See SgSearch.h.
+    @see SgSearch.h.
 */
 //----------------------------------------------------------------------------
 
@@ -420,7 +420,7 @@ bool SgSearch::CallExecute(SgMove move, int* delta, int depth)
 {
     if (DEBUG_SEARCH)
         SgDebug() << "SgSearch::CallExecute: d=" << depth << ' '
-                  << SgBW(GetToPlay()) << ' ' << MoveString(move) << '\n';
+                  << BW(GetToPlay()) << ' ' << MoveString(move) << '\n';
     if (Execute(move, delta, depth))
     {
         m_stat.IncNumMoves();
@@ -699,7 +699,7 @@ int SgSearch::SearchEngine(int depth, int alpha, int beta,
                     CallTakeBack();
                 else
                 {
-                    //SG_ASSERT(false);
+                    //ASSERT(false);
                     tryFirst = SG_NULLMOVE;
                 }
                 if (tryFirst != SG_NULLMOVE || data.IsExactValue())

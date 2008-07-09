@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------
 /** @file GoInfluence.cpp
-    See GoInfluence.h
+    @see GoInfluence.h
 */
 //----------------------------------------------------------------------------
 
@@ -41,7 +41,7 @@ void GoInfluence::FindInfluence(const GoBoard& board,
     {
         for (SgBlackWhite c = SG_BLACK; c <= SG_WHITE; ++c)
         {
-            SgBlackWhite opp = SgOppBW(c);
+            SgBlackWhite opp = OppBW(c);
             next[c] = result[c].Border(size) - result[opp];
         }
         result[SG_BLACK] |= (next[SG_BLACK] - next[SG_WHITE]);

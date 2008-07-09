@@ -1,33 +1,15 @@
 //----------------------------------------------------------------------------
-/** @file SgException.cpp
-    @see SgException.h
+/** @file GoUctPureRandomGenerator.cpp
+    See GoUctPureRandomGenerator.h
 */
 //----------------------------------------------------------------------------
 
 #include "SgSystem.h"
-#include "SgException.h"
+#include "GoUctPureRandomGenerator.h"
 
 using namespace std;
 
 //----------------------------------------------------------------------------
 
-SgException::SgException()
-{
-}
-
-SgException::SgException(const string& message)
-{
-    m_message = message;
-}
-
-SgException::~SgException() throw()
-{
-}
-
-const char* SgException::what() const throw()
-{
-    return m_message.c_str();
-}
 
 //----------------------------------------------------------------------------
-

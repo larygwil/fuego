@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------
 /** @file GoRegion.cpp
-    See GoRegion.h.
+    @see GoRegion.h.
 */
 //----------------------------------------------------------------------------
 
@@ -631,7 +631,7 @@ bool GoRegion::IsCorridor() const
     SG_ASSERT(! m_computedFlags.test(isCorridor));
     for (SgSetIterator it(Points()); it; ++it)
     {
-        if ((m_bd.NumNeighbors(*it, SgOppBW(Color()))
+        if ((m_bd.NumNeighbors(*it, OppBW(Color()))
              + m_bd.NumEmptyNeighbors(*it)) > 2)
             return false;
         if (m_bd.NumNeighbors(*it, Color()) == 0)
@@ -699,7 +699,7 @@ void GoRegion::ReInitialize()
 
 void GoRegion::WriteID(std::ostream& stream) const
 {
-    stream << SgBW(Color()) << " Region "
+    stream << BW(Color()) << " Region "
            << SgWritePoint(Points().Center());
 }
 
@@ -810,7 +810,7 @@ void GoRegion::DoComputeFlag(GoRegionFlag flag)
     switch(flag)
     {
     case isSmall:
-        SetFlag(isSmall, IsSmallRegion(m_bd, Points(), SgOppBW(Color())));
+        SetFlag(isSmall, IsSmallRegion(m_bd, Points(), OppBW(Color())));
         break;
     case isCorridor:
         SetFlag(isCorridor, IsCorridor());
@@ -856,12 +856,12 @@ void GoRegion::DoComputeFlag(GoRegionFlag flag)
         // can have empty m_blocks list on empty board.
         //  SgPointSet boundary = pts.Border(board);
         //  boundary.ExpandToBlocks(board);
-        //  SG_ASSERT(boundary.SubsetOf(board.All(color)));
+        //  ASSERT(boundary.SubsetOf(board.All(color)));
         //      if (IsSingleBlock(board, boundary, color))
         break;
     case oppCanLiveInside: // assuming Dep() is safe.
         SetFlag(oppCanLiveInside,
-                MightMakeLife(m_bd, Points(), Dep(), SgOppBW(Color())));
+                MightMakeLife(m_bd, Points(), Dep(), OppBW(Color())));
         break;
     case atLeastSeki:
         SG_ASSERT(false);
@@ -968,12 +968,12 @@ void GoRegion::ComputeMultipleBlockEyeSpace()
         bool isFalse = FalseEye(eyeThreatened, eyeSafe);
         if (isFalse)
         {
-            SG_ASSERT(minNuEyes == 0);
+            ASSERT(minNuEyes == 0);
             m_eyes.SetEyes(0, 0);
         }
         else if (eyeThreatened)
         {
-            SG_ASSERT(minNuEyes == 0);
+            ASSERT(minNuEyes == 0);
             m_eyes.SetEyes(0, 1);
         }
         else

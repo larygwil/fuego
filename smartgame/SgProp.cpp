@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------
 /** @file SgProp.cpp
-    See SgProp.h.
+    @see SgProp.h.
 
     Implementation details:
 
@@ -1182,7 +1182,7 @@ bool SgPropPlayer::FromString(const std::vector<std::string>& values,
 
 void SgPropPlayer::ChangeToOpponent()
 {
-    m_player = SgOppBW(m_player);
+    m_player = OppBW(m_player);
 }
 
 //----------------------------------------------------------------------------

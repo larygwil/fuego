@@ -40,11 +40,8 @@ public:
 
     void StartSearch();
 
-    /** Implementation of SgUctSearch::Execute */
+    /** Implementation of SgUctSearch::ExecuteMove */
     void Execute(SgMove move);
-
-    /** Implementation of SgUctSearch::ExecutePlayout */
-    void ExecutePlayout(SgMove move);
 
     void TakeBackInTree(std::size_t nuMoves);
 

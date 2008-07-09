@@ -17,9 +17,7 @@ class SgUctInverseEvalFunc;
 
 //----------------------------------------------------------------------------
 
-/** Statistical properties of a SgUctTree.
-    @ingroup sguctgroup
-*/
+/** Statistical properties of a SgUctTree. */
 class SgUctTreeStatistics
 {
 public:
@@ -52,9 +50,6 @@ std::ostream& operator<<(std::ostream& out, const SgUctTreeStatistics& stat);
 
 //----------------------------------------------------------------------------
 
-/** Utility functions for users of SgUctTree.
-    @ingroup sguctgroup
-*/
 namespace SgUctTreeUtil
 {
     /** Extract the subtree from the node after a sequence of moves.
@@ -64,11 +59,10 @@ namespace SgUctTreeUtil
         @param tree The source tree.
         @param[out] target The target tree (will be cleared before using it).
         @param sequence The sequence of moves.
-        @param warnTruncate Same as in SgUctTree::ExtractSubtree
+        @bug Not tested yet. Does probably not work yet.
     */
     void ExtractSubtree(const SgUctTree& tree, SgUctTree& target,
-                        const std::vector<SgMove>& sequence,
-                        bool warnTruncate);
+                        const std::vector<SgMove>& sequence);
 
     /** Find move node with a given move.
         @return The child node or 0, if the position node has no such child.

@@ -152,7 +152,7 @@ namespace GoUctUtil
     */
     template<class BOARD>
     SgPoint SelectRandom(const BOARD& bd, SgBlackWhite toPlay,
-                         GoPointList& emptyPts,
+                         SgPointSList& emptyPts,
                          SgRandom& random);
 
     /** Return statistics of all children of a node.
@@ -231,7 +231,7 @@ inline bool GoUctUtil::DoSelfAtariCorrection(const BOARD& bd, SgPoint& p)
     {
         if (! GoBoardUtil::SelfAtari(bd, p))
             return false;
-        SgBlackWhite opp = SgOppBW(toPlay);
+        SgBlackWhite opp = OppBW(toPlay);
         SgPoint replaceMove = SG_NULLMOVE;
         // Replace move is the liberty we would have after playing at p
         for (SgNb4Iterator it(p); it; ++it)
@@ -268,14 +268,14 @@ inline bool GoUctUtil::DoSelfAtariCorrection(const BOARD& bd, SgPoint& p)
         // should we shift to nb? Is it better than p?
         const SgPoint nb = GoEyeUtil::EmptyNeighbor(bd, p);
         // Check if legal, could violate superko (with BOARD=GoBoard in
-        // GoUctDefaultPriorKnowledge)
+        // GoUctPolicyPriorKnowledge)
         if (bd.IsLegal(nb))
         {
             if (bd.NumEmptyNeighbors(nb) >= 2)
             {
                 // check if p is a capturing move: then stay with p.
                 SgPoint anchors[4 + 1];
-                bd.NeighborBlocks(p, SgOppBW(toPlay), 1, anchors);
+                bd.NeighborBlocks(p, OppBW(toPlay), 1, anchors);
                 if (anchors[0] != SG_ENDPOINT)
                     // at least one neighbor in atari exists
                     return false;
@@ -322,7 +322,7 @@ inline bool GoUctUtil::GeneratePoint(const BOARD& bd, SgPoint p,
 template<class BOARD>
 inline SgPoint GoUctUtil::SelectRandom(const BOARD& bd,
                                        SgBlackWhite toPlay,
-                                       GoPointList& emptyPts,
+                                       SgPointSList& emptyPts,
                                        SgRandom& random)
 {
     while (true)
@@ -336,7 +336,7 @@ inline SgPoint GoUctUtil::SelectRandom(const BOARD& bd,
         if (GeneratePoint(bd, p, toPlay))
             return p;
         emptyPts[index] = emptyPts[length - 1];
-        emptyPts.PopBack();
+        emptyPts.Pop();
     }
     return SG_NULLMOVE;
 }

@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-# Main Makefile for making all Fuego modules
+# Main Makefile for project_explorer.
 # The sub-makefiles are invoked sequentially
 # (see: Peter Miller: Recursive Make Considered Harmful
 # http://aegis.sourceforge.net/auug97.pdf)
@@ -10,9 +10,7 @@ PROJECTS = \
   gtpengine \
   smartgame \
   go \
-  simpleplayers \
   gouct \
-  fuegotest \
   fuegomain
 
 # sequentially to avoid same sub-target in sub-make invoked twice
@@ -26,7 +24,7 @@ debug:
 	@for dir in $(PROJECTS); do \
            if test -f $$dir/Makefile; then \
              echo -e "\n--------------- $$dir (dbg)"; \
-             $(MAKE) -C $$dir debug || exit 1; \
+             $(MAKE) -C $$dir debug || exit -1; \
            fi; \
         done
 	@echo ""
@@ -36,7 +34,7 @@ release:
 	@for dir in $(PROJECTS); do \
            if test -f $$dir/Makefile; then \
              echo -e "\n--------------- $$dir (rel)"; \
-             $(MAKE) -C $$dir release || exit 1; \
+             $(MAKE) -C $$dir release || exit -1; \
            fi; \
         done
 	@echo ""
@@ -46,7 +44,7 @@ clean:
 	@for dir in $(PROJECTS); do \
            if test -f $$dir/Makefile; then \
              echo -e "\n--------------- Removing temporary files for $$dir"; \
-             $(MAKE) -C $$dir clean || exit 1; \
+             $(MAKE) -C $$dir clean || exit -1; \
            fi; \
          done
 	@echo ""

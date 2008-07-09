@@ -194,7 +194,7 @@ public:
         Can be used for incremental update of other data structures.
         Only valid directly after a GoUctBoard::Play, otherwise undefined.
     */
-    const GoPointList& CapturedStones() const;
+    const SgPointSList& CapturedStones() const;
 
     /** The stones captured by the most recent move.
         @see CapturedStones
@@ -322,7 +322,7 @@ private:
 
         typedef LibertyList::Iterator LibertyIterator;
 
-        typedef GoPointList::Iterator StoneIterator;
+        typedef SgPointSList::Iterator StoneIterator;
 
         SgPoint Anchor() const { return m_anchor; }
 
@@ -336,7 +336,7 @@ private:
 
         void InitSingleStoneBlock(SgBlackWhite c, SgPoint anchor)
         {
-            SG_ASSERT_BW(c);
+            SG_ASSERT(IsBlackWhite(c));
             m_color = c;
             m_anchor = anchor;
             m_stones.SetTo(anchor);
@@ -345,7 +345,7 @@ private:
 
         void InitNewBlock(SgBlackWhite c, SgPoint anchor)
         {
-            SG_ASSERT_BW(c);
+            SG_ASSERT(IsBlackWhite(c));
             m_color = c;
             m_anchor = anchor;
             m_stones.Clear();
@@ -358,7 +358,7 @@ private:
 
         int NumStones() const { return m_stones.Length(); }
 
-        const GoPointList& Stones() const { return m_stones; }
+        const SgPointSList& Stones() const { return m_stones; }
 
     private:
         SgPoint m_anchor;
@@ -367,7 +367,7 @@ private:
 
         LibertyList m_liberties;
 
-        GoPointList m_stones;
+        SgPointSList m_stones;
     };
 
     SgPoint m_lastMove;
@@ -404,7 +404,7 @@ private:
 
     mutable SgMarker m_marker;
 
-    GoPointList m_capturedStones;
+    SgPointSList m_capturedStones;
 
     SgArray<bool,SG_MAXPOINT> m_isBorder;
 
@@ -428,15 +428,15 @@ private:
 
     bool IsAdjacentTo(SgPoint p, const Block* block) const;
 
+    void KillAdjacentOpponentBlocks(SgPoint p, SgBlackWhite opp);
+
     void MergeBlocks(SgPoint p, const SgSList<Block*,4>& adjBlocks);
 
-    void RemoveLibAndKill(SgPoint p, SgBlackWhite opp,
-                          SgSList<Block*,4>& adjBlocks);
+    void RemoveLibFromAdjBlocks(SgPoint p);
 
     void RemoveLibFromAdjBlocks(SgPoint p, SgBlackWhite c);
 
-    void UpdateBlocksAfterAddStone(SgPoint p, SgBlackWhite c,
-                                   const SgSList<Block*,4>& adjBlocks);
+    void UpdateBlocksAfterAddStone(SgPoint p, SgBlackWhite c);
 
     void CheckConsistencyBlock(SgPoint p) const;
 
@@ -446,7 +446,7 @@ private:
 
     void RemoveStone(SgPoint p);
 
-    void KillBlock(const Block* block);
+    void KillBlock(SgPoint p);
 
     bool HasLiberties(SgPoint p) const;
 
@@ -601,7 +601,7 @@ inline bool GoUctBoard::AtMostNumLibs(SgPoint block, int n) const
     return NumLiberties(block) <= n;
 }
 
-inline const GoPointList& GoUctBoard::CapturedStones() const
+inline const SgPointSList& GoUctBoard::CapturedStones() const
 {
     return m_capturedStones;
 }
@@ -704,7 +704,7 @@ inline bool GoUctBoard::IsLibertyOfBlock(SgPoint p, SgPoint anchor) const
 
 inline bool GoUctBoard::CanCapture(SgPoint p, SgBlackWhite c) const
 {
-    SgBlackWhite opp = SgOppBW(c);
+    SgBlackWhite opp = OppBW(c);
     for (SgNb4Iterator nb(p); nb; ++nb)
         if (IsColor(*nb, opp) && AtMostNumLibs(*nb, 1))
             return true;
@@ -715,7 +715,7 @@ inline bool GoUctBoard::IsSuicide(SgPoint p, SgBlackWhite toPlay) const
 {
     if (HasEmptyNeighbors(p))
         return false;
-    SgBlackWhite opp = SgOppBW(toPlay);
+    SgBlackWhite opp = OppBW(toPlay);
     for (SgNb4Iterator it(p); it; ++it)
     {
         if (IsBorder(*it))
@@ -738,7 +738,7 @@ inline bool GoUctBoard::IsBorder(SgPoint p) const
 inline bool GoUctBoard::IsColor(SgPoint p, int c) const
 {
     SG_ASSERT(p != SG_PASS);
-    SG_ASSERT_EBW(c);
+    SG_ASSERT(IsEmptyBlackWhite(c));
     return m_color[p] == c;
 }
 
@@ -875,7 +875,7 @@ inline bool GoUctBoard::OccupiedInAtari(SgPoint p) const
 
 inline SgBlackWhite GoUctBoard::Opponent() const
 {
-    return SgOppBW(m_toPlay);
+    return OppBW(m_toPlay);
 }
 
 inline void GoUctBoard::Play(GoPlayerMove move)

@@ -29,125 +29,13 @@
 
 //----------------------------------------------------------------------------
 
-/** @defgroup sguctgroup Monte Carlo tree search
-    Game-independent Monte Carlo tree search using UCT.
-
-    The main class SgUctSearch keeps a tree with statistics for each node
-    visited more than a certain number of times, and then continues with
-    random playout (not necessarily uniform random).
-    Within the tree, the move with the highest upper confidence bound is
-    chosen according to the basic UCT formula:
-    @f[ \bar{X}_j + c \sqrt{\frac{\log{n}}{T_j(n)}} @f]
-    with:
-    - @f$ j @f$ the move index
-    - @f$ X_{j,\gamma} @f$ reward for move @f$ j @f$ at sample @f$ \gamma @f$
-    - @f$ n @f$ number of times the father node was visited
-    - @f$ T_j(n) @f$ number of times the move has been played
-    - @f$ c @f$ an appropriate constant
-
-    References:
-    - Kocsis, Szepesvari:
-      <a href="http://zaphod.aml.sztaki.hu/papers/ecml06.pdf">
-      Bandit based Monte-Carlo Planning</a>
-    - Auer, Cesa-Bianchi, Fischer:
-      <a href="http://homes.dsi.unimi.it/~cesabian/Pubblicazioni/ml-02.pdf">
-      Finite-time Analysis of the Multiarmed Bandit Problem</a>
-    - Gelly, Wang, Munos, Teytaud:
-      <a href="http://hal.inria.fr/docs/00/12/15/16/PDF/RR-6062.pdf">
-      Modification of UCT with patterns in Monte-Carlo Go</a>
-    - Silver, Gelly:
-      <a href=
-      "http://imls.engr.oregonstate.edu/www/htdocs/proceedings/icml2007/papers/387.pdf">
-      Combining Online and Offline Knowledge in UCT</a>
-
-    @see
-    - @ref sguctsearchlockfree
-    - @ref sguctsearchweights
-*/
-
-/** @page sguctsearchlockfree Lock-free usage of SgUctSearch
-    SgUctSearch can be used in a lock-free way for improved multi-threaded
-    performance. Then, the threads access the common data structures (like
-    the tree) without any locking. Lock-free usage is enabled with
-    SgUctSearch::SetLockFree(true).
-
-    It depends on the memory model of the platform, if lock-free usage
-    works. It assumes that writes of some basic types (size_t, int, float,
-    pointers) are atomic and that the CPU does not reorder certain
-    instructions. In particular, SgUctNode::SetNuChildren() is always called
-    after the children were created, such that SgUctNode::HasChildren()
-    returns only true, if the children are ready to use. Because of the
-    platform-dependency, lock-free is not enabled by default.
-    Statistics collected during the search may not be accurate in
-    lock-free usage, because counts and mean values may be manipulated
-    concurrently.
-
-    In particular, the IA-32 and Intel-64 architecture guarantees these
-    assumptions. Writes of the used data types are atomic (if properly
-    aligned) and writes by one CPU are seen in the same order by other CPUs
-    (the critical data is declared as volatile to avoid that the compiler
-    reorders writes for optimization purposes). In addition, the architecture
-    synchronizes CPU caches after writes. See
-    <a href="http://download.intel.com/design/processor/manuals/253668.pdf">
-    Intel 64 and IA-32 Architectures Software Developer's Manual</a>, chapter
-    7.1 (Locked Atomic Operations) and 7.2 (Memory Ordering).
-*/
-
-/** @page sguctsearchweights Estimator weights in SgUctSearch
-    The weights of the estimators (move value, RAVE value, and signature
-    value) are chosen by assuming that the estimators are uncorrelated
-    and modeling the mean squared error of estimator @f$ i @f$ by a function
-    that depends on the number of samples and parameter constants, which
-    represent the variance and bias of the estimator and need to be
-    determined experimentally:
-
-    @f[
-    w_i = \frac{1}{Z} \frac{1}{{\rm MSE}_i}
-    \qquad Z = \sum_i \frac{1}{{\rm MSE}_i}
-    \qquad {\rm MSE}_i = \frac{c_{\rm variance}}{N_i} + c_{\rm bias}^2
-    @f]
-
-    Note that this formula is nearly equivalent to the formula suggested
-    by David Silver on the Computer Go mailing list for the case of two
-    estimators (move value and RAVE value) and used in newer versions of MoGo.
-    However, MoGo uses the measured variance of the current RAVE value (for
-    both the move weight and RAVE weight) instead variance parameter
-    constants.
-
-    The formula is then reformulated to use different constants that describe
-    the initial steepness and final asymptotic value of the unnormalized
-    weight:
-
-    @f[
-    Z w_i =
-    \frac{c_{\rm initial}}
-         {\frac{1}{N} + \frac{c_{\rm initial}}{c_{\rm final}}}
-    @f]
-
-    with:
-    - @f$ N @f$ sample count of the estimator
-    - @f$ c_{\rm initial} @f$ Initial weight parameter; this is they weight if
-      @f$ N = 1 @f$ and @f$ c_{\rm final} \gg c_{\rm initial} @f$
-    - @f$ c_{\rm final} @f$ Final weight parameter; this is they weight if
-      @f$ N \rightarrow \infty @f$
-
-    For the move value, @f$ c_{\rm initial} = c_{\rm final} = 0 @f$, so the
-    weight is simply @f$ N_{\rm move} @f$.
-    If no estimator has a sample count yet, the first-play-urgency parameter
-    is used for the value estimate.
-*/
-
-//----------------------------------------------------------------------------
-
 typedef SgStatistics<float,std::size_t> SgUctStatistics;
 
 typedef SgStatisticsExt<float,std::size_t> SgUctStatisticsExt;
 
 //----------------------------------------------------------------------------
 
-/** Game result, sequence and nodes of one Monte-Carlo game in SgUctSearch.
-    @ingroup sguctgroup
-*/
+/** Game result, sequence and nodes of one Monte-Carlo game in SgUctSearch. */
 struct SgUctGameInfo
 {
     /** The game result of the playout(s).
@@ -192,9 +80,7 @@ struct SgUctGameInfo
 
 //----------------------------------------------------------------------------
 
-/** Provides an initialization of unknown states.
-    @ingroup sguctgroup
-*/
+/** Provides an initialization of unknown states. */
 class SgUctPriorKnowledge
 {
 public:
@@ -220,7 +106,6 @@ class SgUctThreadState;
 
 /** Create SgUctPriorKnowledge instances.
     Needs one per thread.
-    @ingroup sguctgroup
 */
 class SgUctPriorKnowledgeFactory
 {
@@ -237,7 +122,6 @@ public:
     perspective. Typically, this function will return 1 - eval, if 0/1
     (loss/win) evaluations are used, and -eval, if a evaluation function
     symmetrical to 0 is used.
-    @ingroup sguctgroup
 */
 class SgUctInverseEvalFunc
 {
@@ -255,9 +139,7 @@ public:
 
 //----------------------------------------------------------------------------
 
-/** Move selection strategy after search is finished.
-    @ingroup sguctgroup
-*/
+/** Move selection strategy after search is finished. */
 enum SgUctMoveSelect
 {
     /** Select move with highest mean value. */
@@ -277,15 +159,32 @@ enum SgUctMoveSelect
 
 //----------------------------------------------------------------------------
 
+/** How the prior knowledge is used to initialize the values.
+    This is only used, if a prior knowledge class was set with
+    SgUctSearch::SetPriorKnowledge.
+*/
+enum SgUctPriorInit
+{
+    /** Initialize only the move value. */
+    SG_UCTPRIORINIT_MOVE,
+
+    /** Initialize only the RAVE value. */
+    SG_UCTPRIORINIT_RAVE,
+
+    /** Initialize both the move and the RAVE value. */
+    SG_UCTPRIORINIT_BOTH
+};
+
+//----------------------------------------------------------------------------
+
 /** Base class for the thread state.
     Subclasses must be thread-safe, it must be possible to use different
     instances of this class in different threads (after construction, the
     constructor does not need to be thread safe). Beware not to use classes
     that are not thread-safe, because they use global variables
-    (e.g. SgRandom::Global(), SgList)
+    (e.g. SgRandom(), SgList)
     @note Technically it is possible to use a non-thread safe implementation
     of subclasses, as long as the search is run with only one thread.
-    @ingroup sguctgroup
 */
 class SgUctThreadState
 {
@@ -323,7 +222,7 @@ public:
     // @{
 
     /** Evaluate end-of-game position.
-        Will only be called if GenerateAllMoves() or GeneratePlayoutMove()
+        Will only be called if GenerateAllMoves() or GenerateRandomMove()
         returns no moves. Should return larger values if position is better
         for the player to move.
     */
@@ -333,14 +232,6 @@ public:
         @param move The move
      */
     virtual void Execute(SgMove move) = 0;
-
-    /** Execute a move in the playout phase.
-        For optimization if the subclass uses uses a different game state
-        representation in the playout phase. Otherwise the function can be
-        implemented in the subclass by simply calling Execute().
-        @param move The move
-     */
-    virtual void ExecutePlayout(SgMove move) = 0;
 
     /** Generate moves.
         Moves will be explored in the order of the returned list.
@@ -355,7 +246,7 @@ public:
         ignored.
         @return The move or SG_NULLMOVE at the end of the game.
     */
-    virtual SgMove GeneratePlayoutMove(bool& skipRaveUpdate) = 0;
+    virtual SgMove GenerateRandomMove(bool& skipRaveUpdate) = 0;
 
     /** Start search.
         This function should do any necessary preparations for playing games
@@ -368,13 +259,7 @@ public:
     /** Take back moves played in the in-tree phase. */
     virtual void TakeBackInTree(std::size_t nuMoves) = 0;
 
-    /** Take back moves played in the playout phase.
-        The search engine does not assume that the moves are really taken back
-        after this function is called. If the subclass implements the playout
-        in s separate state, which is initialized in StartPlayout() and does
-        not support undo, the implementation of this function can be left
-        empty in the subclass.
-    */
+    /** Take back moves played in the playout phase. */
     virtual void TakeBackPlayout(std::size_t nuMoves) = 0;
 
     /** Color to play in the current position.
@@ -383,7 +268,7 @@ public:
     */
     virtual SgBlackWhite ToPlay() const = 0;
 
-    // @} // name
+    // @} // @name
 
 
     /** @name Virtual functions */
@@ -422,7 +307,7 @@ public:
     */
     virtual std::size_t GetSignature(SgMove mv) const;
 
-    // @} // name
+    // @} // @name
 };
 
 //----------------------------------------------------------------------------
@@ -431,7 +316,6 @@ class SgUctSearch;
 
 /** Create game specific thread state.
     @see SgUctThreadState
-    @ingroup sguctgroup
 */
 class SgUctThreadStateFactory
 {
@@ -444,8 +328,64 @@ public:
 
 //----------------------------------------------------------------------------
 
-/** Monte Carlo tree search using UCT.
-    @ingroup sguctgroup
+/** @page sguctsearchlockfree Lock-free usage of SgUctSearch
+    SgUctSearch can be used in a lock-free way for improved multi-threaded
+    performance. Lock-free usage is enabled with
+    SgUctSearch::SetLockFree(true).
+    However, it depends on the memory model of the platform, if lock-free
+    usage works. If the CPU is allowed to do instruction-reordering, the
+    program may crash.
+    Note that statistics collected during the search may not be accurate if
+    lock-free usage is enabled, because counts and mean values may be
+    manipulated concurrently.
+*/
+
+/** @page sguctsearchweights Estimator weights in SgUctSearch
+    The (unnormalized) weights given to the estimators (move value,
+    RAVE value, and signature value) have the form:
+    @f[ \frac{c_i}{\frac{1}{N} + \frac{c_i}{c_f}} @f]
+    with:
+    - @f$ N @f$ sample count of the estimator
+    - @f$ c_i @f$ Initial weight parameter; this is they weight if
+      @f$ N = 1 @f$ and @f$ c_f \gg c_i @f$
+    - @f$ c_f @f$ Final weight parameter; this is they weight if
+      @f$ N \rightarrow \infty @f$
+
+    For the move value, @f$ c_i = c_f = 0 @f$, so the weight is simply
+    @f$ N_{\rm move} @f$.
+    If no estimator has a sample count yet, the first-play-urgency parameter
+    is used for the value estimate.
+*/
+
+/** Game-independent Monte-Carlo search using UCT.
+    Keeps a tree with statistics for each node visited more than a
+    certain number of times, and then continues with random playout
+    (not necessarily uniform random).
+    Within the tree, the move with the highest upper confidence bound is
+    chosen either according to the basic UCT formula:
+    @f[ \bar{X}_j + c \sqrt{\frac{\log{n}}{T_j(n)}} @f]
+    with:
+    - @f$ j @f$ the move index
+    - @f$ X_{j,\gamma} @f$ reward for move @f$ j @f$ at sample @f$ \gamma @f$
+    - @f$ n @f$ number of times the father node was visited
+    - @f$ T_j(n) @f$ number of times the move has been played
+    - @f$ c @f$ an appropriate constant
+
+    References:
+    - Kocsis, Szepesvari: Bandit based Monte-Carlo Planning.
+      http://zaphod.aml.sztaki.hu/papers/ecml06.pdf
+    - Auer, Cesa-Bianchi, Fischer:
+      Finite-time Analysis of the Multiarmed Bandit Problem.
+      http://homes.dsi.unimi.it/~cesabian/Pubblicazioni/ml-02.pdf
+    - Gelly, Wang, Munos, Teytaud: Modification of UCT with patterns in
+      Monte-Carlo Go.
+      http://hal.inria.fr/docs/00/12/15/16/PDF/RR-6062.pdf
+    - Silver, Gelly: Combining Online and Offline Knowledge in UCT.
+      http://www.machinelearning.org/proceedings/icml2007/papers/387.pdf
+
+    @see
+    - @ref sguctsearchlockfree
+    - @ref sguctsearchweights
 */
 class SgUctSearch
     : public SgUctInverseEvalFunc
@@ -495,7 +435,7 @@ public:
     */
     virtual float UnknownEval() const = 0;
 
-    // @} // name
+    // @} // @name
 
 
     /** @name Virtual functions */
@@ -530,7 +470,7 @@ public:
     */
     virtual std::size_t SignatureRange() const;
 
-    // @} // name
+    // @} // @name
 
 
     /** @name Search functions */
@@ -607,7 +547,7 @@ public:
 
     const SgUctStatisticsBaseVolatile& GetSignatureStat(SgMove mv) const;
 
-    // @} // name
+    // @} // @name
 
 
     /** @name Search data */
@@ -628,7 +568,7 @@ public:
 
     const SgUctTree& Tree() const;
 
-    // @} // name
+    // @} // @name
 
 
     /** @name Parameters */
@@ -642,15 +582,6 @@ public:
 
     /** See BiasTermConstant() */
     void SetBiasTermConstant(float biasTermConstant);
-
-    /** Don't use a bias term.
-        Logically equivalent to setting the bias term constant to zero,
-        but faster, because the bias term computation is skipped.
-    */
-    bool NoBiasTerm() const;
-
-    /** See NoBiasTerm() */
-    void SetNoBiasTerm(bool enable);
 
     /** Maximum number of nodes in the tree. */
     std::size_t MaxNodes() const;
@@ -755,6 +686,12 @@ public:
     /** See SgUctMoveSelect */
     void SetMoveSelect(SgUctMoveSelect moveSelect);
 
+    /** See SgUctPriorInit */
+    SgUctPriorInit PriorInit() const;
+
+    /** See SgUctPriorInit */
+    void SetPriorInit(SgUctPriorInit priorInit);
+
     /** Use move signatures.
         Move signatures are numbers computed by the subclass that represent a
         class of moves during the in-tree phase (e.g. a code encoding the
@@ -792,7 +729,7 @@ public:
     /** See @ref sguctsearchweights. */
     void SetSignatureWeightFinal(float value);
 
-    // @} // name
+    // @} // @name
 
 
     /** @name Statistics */
@@ -812,7 +749,7 @@ public:
 
     void WriteStatistics(std::ostream& out) const;
 
-    // @} // name
+    // @} // @name
 
     /** Get state of one of the threads.
         Requires: ThreadsCreated()
@@ -899,11 +836,11 @@ private:
     /** See Rave() */
     bool m_rave;
 
-    /** See NoBiasTerm() */
-    bool m_noBiasTerm;
-
     /** See SgUctMoveSelect */
     SgUctMoveSelect m_moveSelect;
+
+    /** See SgUctPriorInit */
+    SgUctPriorInit m_priorInit;
 
     /** See RaveCheckSame() */
     bool m_raveCheckSame;
@@ -1144,11 +1081,6 @@ inline const SgUctStatisticsExt& SgUctSearch::MovesInTreeStat() const
     return m_movesInTreeStat;
 }
 
-inline bool SgUctSearch::NoBiasTerm() const
-{
-    return m_noBiasTerm;
-}
-
 inline std::size_t SgUctSearch::NumberThreads() const
 {
     return m_numberThreads;
@@ -1162,6 +1094,11 @@ inline std::size_t SgUctSearch::NumberPlayouts() const
 inline void SgUctSearch::PlayGame(bool& isTreeOutOfMem)
 {
     PlayGame(ThreadState(0), 0, isTreeOutOfMem);
+}
+
+inline SgUctPriorInit SgUctSearch::PriorInit() const
+{
+    return m_priorInit;
 }
 
 inline bool SgUctSearch::Rave() const
@@ -1227,15 +1164,15 @@ inline void SgUctSearch::SetMoveSelect(SgUctMoveSelect moveSelect)
     m_moveSelect = moveSelect;
 }
 
-inline void SgUctSearch::SetNoBiasTerm(bool enable)
-{
-    m_noBiasTerm = enable;
-}
-
 inline void SgUctSearch::SetNumberPlayouts(std::size_t n)
 {
     SG_ASSERT(n >= 1);
     m_numberPlayouts = n;
+}
+
+inline void SgUctSearch::SetPriorInit(SgUctPriorInit priorInit)
+{
+    m_priorInit = priorInit;
 }
 
 inline void SgUctSearch::SetRaveCheckSame(bool enable)

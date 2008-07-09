@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------
 /** @file SgGtpCommands.cpp
-    See SgGtpCommands.h
+    @see SgGtpCommands.h
 */
 //----------------------------------------------------------------------------
 
@@ -69,7 +69,9 @@ SgGtpCommands::~SgGtpCommands()
 void SgGtpCommands::AddGoGuiAnalyzeCommands(GtpCommand& cmd)
 {
     cmd <<
-        "param/SmartGame Param/sg_param\n";
+        "none/Sg Debugger (GDB-KDE)/sg_debugger gdb_kde\n"
+        "none/Sg Debugger (GDB-GNOME)/sg_debugger gdb_gnome\n"
+        "param/Sg Param/sg_param\n";
 }
 
 /** Run another GTP command and compare its response against a float value.

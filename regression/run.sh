@@ -7,8 +7,6 @@ RESULT_DIR="html"
 TESTSUITE_DEFAULT="basics.suite"
 FUEGO_REL="../build/gmake/build/release/fuego -srand 1"
 FUEGO_DBG="../build/gmake/build/debug/fuego -srand 1"
-FUEGOTEST_REL="../build/gmake/build/release/fuego_test -srand 1"
-FUEGOTEST_DBG="../build/gmake/build/debug/fuego_test -srand 1"
 
 #-----------------------------------------------------------------------------
 # Functions
@@ -19,12 +17,11 @@ usage() {
 Usage: $0 [options] [testsuite]
 
 Options:
-  -d Append date to name of ouput directory
+  -r Use release version of program (only for program abbreviations)
   -h Print help and exit
   -l Long output
   -p Program, using full command or a program abbreviation
-     (fuego,fuego_test). Default is fuego.
-  -r Use release version of program (only for program abbreviations)
+     (currently only fuego). Default is fuego.
   -t Single test file to run (without extension .tst or .list)
 
 The test files are expected to have the file endings .tst or .list.
@@ -52,15 +49,6 @@ setprogram() {
 	    else
 		PROGRAM_CMD="$FUEGO_DBG"
 		RESULT_EXT="fuego_dbg"
-	    fi
-	    ;;
-	fuego_test)
-	    if (( $RELEASE != 0 )); then
-		PROGRAM_CMD="$FUEGOTEST_REL"
-		RESULT_EXT="fuego_test"
-	    else
-		PROGRAM_CMD="$FUEGOTEST_DBG"
-		RESULT_EXT="fuego_test_dbg"
 	    fi
 	    ;;
 	*)
@@ -109,10 +97,6 @@ runtest() {
     if [[ "$RESULT_EXT" != "" ]]; then
 	TEST_DIR="$TEST_DIR-$RESULT_EXT"
     fi
-    if (( $APPEND_DATE != 0 )); then
-        DATE=$(date +'%Y%m%d')
-	TEST_DIR="$TEST_DIR-$DATE"
-    fi
     mkdir -p "$TEST_DIR"
     
     if (( $LONG_OUTPUT != 0 )); then
@@ -138,12 +122,10 @@ EOF
 
 RELEASE=0
 LONG_OUTPUT=0
-APPEND_DATE=0
 PROGRAM=""
 TESTFILE=""
-while getopts "dhlp:rt:" OPT; do
+while getopts "hlp:rt:" OPT; do
 case "$OPT" in
-    d)   APPEND_DATE=1;;
     h)   usage; exit 0;;
     l)   LONG_OUTPUT=1;;
     p)   PROGRAM="$OPTARG";;

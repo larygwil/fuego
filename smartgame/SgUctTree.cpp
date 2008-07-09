@@ -7,11 +7,9 @@
 #include "SgSystem.h"
 #include "SgUctTree.h"
 
-#include <boost/format.hpp>
 #include "SgDebug.h"
 
 using namespace std;
-using boost::format;
 using boost::shared_ptr;
 
 //----------------------------------------------------------------------------
@@ -64,18 +62,12 @@ void SgUctTree::ApplyFilter(std::size_t allocatorId, const SgUctNode& node,
         }
     }
 
+    // SetNuChildren() must be called last, because of SgUctTree guarantees
+    // that the children exist, if NuChildren() is greater zero.
+    // See multi-threading comment at class SgUctSearch.
     SgUctNode& nonConstNode = const_cast<SgUctNode&>(node);
-    // Write order dependency: SgUctSearch in lock-free mode assumes that
-    // m_firstChild is valid if m_nuChildren is greater zero
     nonConstNode.SetFirstChild(firstChild);
     nonConstNode.SetNuChildren(nuChildren);
-}
-
-void SgUctTree::CheckConsistency() const
-{
-    for (SgUctTreeIterator it(*this); it; ++it)
-        if (! Contains(*it))
-            ThrowConsistencyError(str(format("! Contains(%1%)") % &(*it)));
 }
 
 void SgUctTree::Clear()
@@ -105,13 +97,10 @@ bool SgUctTree::Contains(const SgUctNode& node) const
     @param node The node in the source tree to be copied.
     @param currentAllocatorId The current node allocator. Will be incremented
     in each call to CopySubtree to use node allocators of target tree evenly.
-    @param warnTruncate Print warning to SgDebug() if tree was truncated due
-    to reassigning nodes to different allocators
 */
 void SgUctTree::CopySubtree(SgUctTree& target, SgUctNode& targetNode,
                             const SgUctNode& node,
-                            std::size_t& currentAllocatorId,
-                            bool warnTruncate) const
+                            std::size_t& currentAllocatorId) const
 {
     SG_ASSERT(Contains(node));
     SG_ASSERT(target.Contains(targetNode));
@@ -128,10 +117,6 @@ void SgUctTree::CopySubtree(SgUctTree& target, SgUctNode& targetNode,
         // nodes, because allocators are used differently. We don't copy
         // the children and set the pos count to zero (should reflect the sum
         // of children move counts)
-        if (warnTruncate)
-            SgDebug() <<
-                "SgUctTree::CopySubtree: "
-                "Tree truncated (low allocator capacity)\n";
         targetNode.SetPosCount(0);
         return;
     }
@@ -160,7 +145,7 @@ void SgUctTree::CopySubtree(SgUctTree& target, SgUctNode& targetNode,
         if (currentAllocatorId >= target.NuAllocators())
             currentAllocatorId = 0;
         CopySubtree(target, targetNodes[firstTargetChild + i], child,
-                    currentAllocatorId, warnTruncate);
+                    currentAllocatorId);
     }
 }
 
@@ -202,24 +187,14 @@ void SgUctTree::CreateChildren(std::size_t allocatorId, const SgUctNode& node,
         nodes.push_back(child);
     }
 
-    // Write order dependency: SgUctSearch in lock-free mode assumes that
-    // m_firstChild is valid if m_nuChildren is greater zero
+    // SetNuChildren() must be called last, because of SgUctTree guarantees
+    // that the children exist, if NuChildren() is greater zero.
+    // See multi-threading comment at class SgUctSearch.
     nonConstNode.SetFirstChild(firstChild);
     nonConstNode.SetNuChildren(nuChildren);
 }
 
-void SgUctTree::DumpDebugInfo(std::ostream& out) const
-{
-    out << "Root " << &m_root << '\n';
-    for (size_t i = 0; i < NuAllocators(); ++i)
-        out << "Allocator " << i
-            << " size=" << Allocator(i).m_nodes.size()
-            << " begin=" << &(*Allocator(i).m_nodes.begin())
-            << " end=" << &(*Allocator(i).m_nodes.end()) << '\n';
-}
-
-void SgUctTree::ExtractSubtree(SgUctTree& target, const SgUctNode& node,
-                               bool warnTruncate) const
+void SgUctTree::ExtractSubtree(SgUctTree& target, const SgUctNode& node) const
 {
     SG_ASSERT(Contains(node));
     SG_ASSERT(&target != this);
@@ -227,7 +202,7 @@ void SgUctTree::ExtractSubtree(SgUctTree& target, const SgUctNode& node,
     SG_ASSERT(Contains(node));
     target.Clear();
     size_t allocatorId = 0;
-    CopySubtree(target, target.m_root, node, allocatorId, warnTruncate);
+    CopySubtree(target, target.m_root, node, allocatorId);
 }
 
 std::size_t SgUctTree::NuNodes() const
@@ -263,12 +238,6 @@ void SgUctTree::Swap(SgUctTree& tree)
         Allocator(i).Swap(tree.Allocator(i));
 }
 
-void SgUctTree::ThrowConsistencyError(const string& message) const
-{
-    DumpDebugInfo(SgDebug());
-    throw SgException("SgUctTree::ThrowConsistencyError: " + message);
-}
-
 //----------------------------------------------------------------------------
 
 SgUctTreeIterator::SgUctTreeIterator(const SgUctTree& tree)
@@ -294,8 +263,8 @@ void SgUctTreeIterator::operator++()
     while (! m_stack.empty())
     {
         SgUctChildIterator& it = *m_stack.top();
-        SG_ASSERT(it);
-        ++it;
+        if (it)
+            ++it;
         if (it)
         {
             m_current = &(*it);

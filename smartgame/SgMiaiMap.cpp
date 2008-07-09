@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------
 /** @file SgMiaiMap.cpp
-    See SgMiaiMap.h
+    @see SgMiaiMap.h
 */
 //----------------------------------------------------------------------------
 
@@ -32,7 +32,7 @@ void SgMiaiMap::ExecuteMove(SgPoint p, SgBlackWhite player)
         m_map[player][p] = SG_NULLPOINT;
         m_map[player][m_forcedMove] = SG_NULLPOINT; // too early???
         
-        SgBlackWhite opp = SgOppBW(player);
+        SgBlackWhite opp = OppBW(player);
         SgPoint temp = m_map[opp][p];
         if (temp != SG_NULLPOINT)
         {

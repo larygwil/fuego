@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------
 /** @file GoChain.cpp
-    See GoChain.h.
+    @see GoChain.h.
 */
 //----------------------------------------------------------------------------
 
@@ -82,7 +82,7 @@ bool GoChain::AllEmptyAreLiberties(const SgPointSet& area) const
 
 void GoChain::WriteID(std::ostream& stream) const
 {
-    stream << ' '<< SgBW(Color()) << " GoChain "
+    stream << ' '<< BW(Color()) << " GoChain " 
            << SgWritePoint(Anchor());
 }
 

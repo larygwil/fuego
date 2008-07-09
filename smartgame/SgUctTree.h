@@ -21,15 +21,7 @@ typedef SgStatisticsBase<volatile float,volatile std::size_t>
 
 //----------------------------------------------------------------------------
 
-/** Node used in SgUctTree.
-    All data members are declared as volatile to avoid that the compiler
-    re-orders writes, which can break assumptions made by SgUctSearch in
-    lock-free mode (see @ref sguctsearchlockfree). For example, the search
-    relies on the fact that m_firstChild is valid, if m_nuChildren is greater
-    zero or that the mean value of the move and RAVE value statistics is valid
-    if the corresponding count is greater zero.
-    @ingroup sguctgroup
-*/
+/** Node used in SgUctTree. */
 class SgUctNode
 {
 public:
@@ -81,6 +73,11 @@ public:
         See PosCount()
     */
     void IncPosCount();
+
+    /** Increment the position count.
+        See PosCount()
+    */
+    void IncPosCount(std::size_t count);
 
     void SetPosCount(std::size_t value);
 
@@ -144,7 +141,7 @@ inline SgUctNode::SgUctNode(SgMove move)
       m_posCount(0),
       m_signature(std::numeric_limits<size_t>::max())
 {
-    // m_firstChild is not initialized, only defined if m_nuChildren > 0
+    // m_firstChild is not initialized, only defined in m_nuChildren > 0
 }
 
 inline void SgUctNode::AddGameResult(float eval)
@@ -179,6 +176,11 @@ inline bool SgUctNode::HasChildren() const
 inline void SgUctNode::IncPosCount()
 {
     ++m_posCount;
+}
+
+inline void SgUctNode::IncPosCount(std::size_t count)
+{
+    m_posCount += count;
 }
 
 inline void SgUctNode::InitializeValue(float value, std::size_t count)
@@ -261,7 +263,6 @@ inline std::size_t SgUctNode::Signature() const
 /** Allocater for nodes used in the implementation of SgUctTree.
     Each thread has its own node allocator to allow lock-free usage of
     SgUctTree.
-    @ingroup sguctgroup
 */
 class SgUctAllocator
 {
@@ -285,11 +286,9 @@ public:
     void SetMaxNodes(std::size_t maxNodes);
 
     /** Check if allocator contains node.
-        This function uses pointer comparisons. Since the result of
-        comparisons for pointers to elements in different containers
-        is platform-dependent, it is only guaranteed that it returns true,
-        if not node belongs to the allocator, but not that it returns false
-        for nodes not in the allocator.
+        Only used for assertions. May not be available in future
+        implementations. Also not portable, because the result of comparisons
+        of pointers belonginf to different variables is undefined.
     */
     bool Contains(const SgUctNode& node) const;
 
@@ -340,7 +339,6 @@ inline void SgUctAllocator::SetMaxNodes(std::size_t maxNodes)
     the integrity of the tree structure.
     The tree can be used in a lock-free way during a search (see
     @ref sguctsearchlockfree).
-    @ingroup sguctgroup
 */
 class SgUctTree
 {
@@ -401,11 +399,8 @@ public:
         @param[out] target The resulting subtree. Must have the same maximum
         number of nodes. Will be cleared before using.
         @param node The start node of the subtree.
-        @param warnTruncate Print warning to SgDebug() if tree was truncated
-        due to reassigning nodes to different allocators
     */
-    void ExtractSubtree(SgUctTree& target, const SgUctNode& node,
-                        bool warnTruncate) const;
+    void ExtractSubtree(SgUctTree& target, const SgUctNode& node) const;
 
     const SgUctNode& Root() const;
 
@@ -426,11 +421,8 @@ public:
     */
     void AddRaveValue(const SgUctNode& node, float value);
 
-    /** Initialize the value and count of a node. */
-    void InitializeValue(const SgUctNode& node, float value,
-                         std::size_t count);
-
-    void SetPosCount(const SgUctNode& node, size_t posCount);
+    void InitializeValue(const SgUctNode& node, const SgUctNode& child,
+                         float value, std::size_t count);
 
     /** Initialize the rave value and count of a move node with prior
         knowledge.
@@ -448,27 +440,6 @@ public:
     */
     void ApplyFilter(std::size_t allocatorId, const SgUctNode& node,
                      const std::vector<SgMove>& rootFilter);
-
-    /** @name Functions for debugging */
-    // @{
-
-    /** Do some consistency checks.
-        @throws SgException if inconsistencies are detected.
-    */
-    void CheckConsistency() const;
-
-    /** Check if tree contains node.
-        This function uses pointer comparisons. Since the result of
-        comparisons for pointers to elements in different containers
-        is platform-dependent, it is only guaranteed that it returns true,
-        if not node belongs to the allocator, but not that it returns false
-        for nodes not in the tree.
-    */
-    bool Contains(const SgUctNode& node) const;
-
-    void DumpDebugInfo(std::ostream& out) const;
-
-    // @} // @name
 
 private:
     std::size_t m_maxNodes;
@@ -491,12 +462,11 @@ private:
 
     const SgUctAllocator& Allocator(std::size_t i) const;
 
+    bool Contains(const SgUctNode& node) const;
+
     void CopySubtree(SgUctTree& target, SgUctNode& targetNode,
                      const SgUctNode& node,
-                     std::size_t& currentAllocatorId,
-                     bool warnTruncate) const;
-
-    void ThrowConsistencyError(const std::string& message) const;
+                     std::size_t& currentAllocatorId) const;
 };
 
 inline void SgUctTree::AddGameResult(const SgUctNode& node,
@@ -537,12 +507,15 @@ inline bool SgUctTree::HasCapacity(std::size_t allocatorId,
 }
 
 inline void SgUctTree::InitializeValue(const SgUctNode& node,
+                                       const SgUctNode& child,
                                        float value, std::size_t count)
 {
     SG_ASSERT(Contains(node));
-    // Parameter is const-reference, because only the tree is allowed
+    SG_ASSERT(Contains(child));
+    // Parameters are const-references, because only the tree is allowed
     // to modify nodes
-    const_cast<SgUctNode&>(node).InitializeValue(value, count);
+    const_cast<SgUctNode&>(node).IncPosCount(count);
+    const_cast<SgUctNode&>(child).InitializeValue(value, count);
 }
 
 inline void SgUctTree::InitializeRaveValue(const SgUctNode& node,
@@ -574,14 +547,6 @@ inline const SgUctNode& SgUctTree::Root() const
     return m_root;
 }
 
-inline void SgUctTree::SetPosCount(const SgUctNode& node, size_t posCount)
-{
-    SG_ASSERT(Contains(node));
-    // Parameters are const-references, because only the tree is allowed
-    // to modify nodes
-    const_cast<SgUctNode&>(node).SetPosCount(posCount);
-}
-
 inline void SgUctTree::SetSignature(const SgUctNode& node, std::size_t sig)
 {
     SG_ASSERT(Contains(node));
@@ -592,13 +557,7 @@ inline void SgUctTree::SetSignature(const SgUctNode& node, std::size_t sig)
 
 //----------------------------------------------------------------------------
 
-/** Iterator over all children of a node.
-    It was intentionally implemented to be used only, if at least one child
-    exists (checked with an assertion), since in many use cases, the case
-    of no children needs to be handled specially and should be checked
-    before doing a loop over all children.
-    @ingroup sguctgroup
-*/
+/** Iterator over all children of a node. */
 class SgUctChildIterator
 {
 public:
@@ -646,9 +605,7 @@ inline SgUctChildIterator::operator bool() const
 
 //----------------------------------------------------------------------------
 
-/** Iterator for traversing a tree depth-first.
-    @ingroup sguctgroup
-*/
+/** Iterator for traversing a tree depth-first. */
 class SgUctTreeIterator
 {
 public:

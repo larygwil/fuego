@@ -96,7 +96,7 @@ inline void GoUctPureRandomGenerator<BOARD>::CheckConsistency() const
                                                    (m_bd.CapturedStones())
                           << "Last move: "
                           << SgWritePoint(m_bd.GetLastMove()) << '\n';
-                SG_ASSERT(false);
+                ASSERT(false);
             }
     }
 #endif
@@ -133,14 +133,10 @@ inline SgPoint GoUctPureRandomGenerator<BOARD>::Generate()
 template<class BOARD>
 inline void GoUctPureRandomGenerator<BOARD>::OnPlay()
 {
-    const GoPointList& capturedStones = m_bd.CapturedStones();
-    if (! capturedStones.IsEmpty())
-    {
-        // Don't remove stone played, too expensive, check later in Generate()
-        // that generated point is still empty
-        for (GoPointList::Iterator it(capturedStones); it; ++it)
-            Insert(*it);
-    }
+    // Don't remove stone played, too expensive, check later in Generate()
+    // that generated point is still empty
+    for (SgPointSList::Iterator it(m_bd.CapturedStones()); it; ++it)
+        Insert(*it);
     CheckConsistency();
 }
 

@@ -20,12 +20,7 @@
 
 typedef std::pair<SgPoint, SgPoint> SgMiaiPair;
 
-//----------------------------------------------------------------------------
-
-namespace SgMiaiPairUtil
-{
-    SgPoint Other(const SgMiaiPair& pair, SgPoint p);
-}
+SgPoint Other(const SgMiaiPair& pair, SgPoint p);
 
 //----------------------------------------------------------------------------
 
@@ -46,7 +41,7 @@ public:
     /** Set whole strategy */
     void SetStrategy(const SgList<SgMiaiPair>& miaiStrategies)
     {
-        //SG_ASSERT(m_miaiStrategies.IsEmpty());
+        //ASSERT(m_miaiStrategies.IsEmpty());
         m_miaiStrategies = miaiStrategies;
     }
     

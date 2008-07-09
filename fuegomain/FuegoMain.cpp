@@ -7,8 +7,9 @@
 #include "SgSystem.h"
 
 #include <iostream>
+#include <sstream>
+#include <boost/preprocessor/stringize.hpp>
 #include "FuegoMainEngine.h"
-#include "FuegoMainUtil.h"
 #include "GoInit.h"
 #include "SgCmdLineOpt.h"
 #include "SgDebug.h"
@@ -24,9 +25,7 @@ namespace {
 /** @name Settings from command line options */
 // @{
 
-bool g_quiet;
-
-int g_initialBoardSize;
+bool g_quiet = false;
 
 string g_config;
 
@@ -36,7 +35,7 @@ const char* g_programPath;
 
 void MainLoop()
 {
-    FuegoMainEngine engine(cin, cout, g_initialBoardSize, g_programPath);
+    FuegoMainEngine engine(cin, cout, g_programPath);
     GoGtpAssertionHandler assertionHandler(engine);
     if (g_config != "")
         engine.ExecuteFile(g_config);
@@ -51,7 +50,6 @@ void ParseOptions(int argc, char** argv)
     specs.push_back("help");
     specs.push_back("quiet");
     specs.push_back("srand:");
-    specs.push_back("size:");
     opt.Parse(argc, argv, specs);
     if (opt.GetArguments().size() > 0)
         throw SgException("No arguments allowed");
@@ -63,32 +61,36 @@ void ParseOptions(int argc, char** argv)
             "               starting main command loop\n"
             "  -help        display this help and exit\n"
             "  -quiet       don't print debug messages\n"
-            "  -size        initial board size\n"
             "  -srand       set random seed (-1:none, 0:time(0))\n";
         exit(0);
     }
     g_config = opt.GetString("config", "");
-    g_quiet = opt.Contains("quiet");
+    if (opt.Contains("quiet"))
+        g_quiet = true;
     if (opt.Contains("srand"))
         SgRandom::SetSeed(opt.GetInteger("srand"));
-    else
-        // Don't be deterministic by default (0 means non-deterministic seed)
-        SgRandom::SetSeed(0);
-    g_initialBoardSize = opt.GetInteger("size", 19);
 }
 
 void PrintStartupMessage()
 {
+    ostringstream version;
+#ifdef VERSION
+    version << BOOST_PP_STRINGIZE(VERSION);
+#else
+    version << "(" __DATE__ ")";
+#endif
+#ifdef _DEBUG
+    version << " (dbg)";
+#endif
     SgDebug()
-        << "Fuego " << FuegoMainUtil::Version() << '\n' <<
+        << "Fuego " << version.str() << '\n' <<
         "Copyright by the authors of the Fuego project.\n"
         "See http://fuego.sf.net for information about Fuego. Fuego comes\n"
         "with NO WARRANTY to the extent permitted by law. This program is\n"
         "free software; you can redistribute it and/or modify it under the\n"
         "terms of the GNU Lesser General Public License as published by the\n"
         "Free Software Foundation - version 3. For more information about\n"
-        "these matters, see the files named COPYING and COPYING.LESSER\n"
-        "\n";
+        "these matters, see the files named COPYING and COPYING.LESSER\n";
 }
 
 } // namespace

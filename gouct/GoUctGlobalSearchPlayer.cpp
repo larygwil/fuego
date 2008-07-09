@@ -12,7 +12,6 @@
 #include "GoBoardRestorer.h"
 #include "GoBoardUtil.h"
 #include "GoUctDefaultPlayoutPolicy.h"
-#include "GoUctDefaultPriorKnowledge.h"
 #include "GoUctUtil.h"
 #include "SgDebug.h"
 #include "SgNbIterator.h"
@@ -112,14 +111,13 @@ void GoUctGlobalSearchPlayer::Statistics::Save(std::ostream& out) const
 GoUctGlobalSearchPlayer::GoUctGlobalSearchPlayer(GoBoard& bd)
     : GoPlayer(bd),
       m_searchMode(GOUCT_SEARCHMODE_UCT),
-      m_autoParam(true),
       m_ignoreClock(true),
       m_enablePonder(false),
       m_pruneRootMoves(false),
       m_reuseSubtree(false),
       m_maxTime(1e10),
       m_resignThreshold(0.03),
-      m_priorKnowledge(GOUCT_PRIORKNOWLEDGE_DEFAULT),
+      m_priorKnowledge(GOUCT_PRIORKNOWLEDGE_POLICY),
       m_maxGames(100000),
       m_search(Board(),
                new GoUctDefaultPlayoutPolicyFactory<GoUctBoard>(
@@ -145,8 +143,8 @@ void GoUctGlobalSearchPlayer::ClearStatistics()
     m_statistics.Clear();
 }
 
-SgPoint GoUctGlobalSearchPlayer::GenMove(const SgTimeRecord& time,
-                                         SgBlackWhite toPlay)
+SgMove GoUctGlobalSearchPlayer::GenMove(const SgTimeRecord& time,
+                                        SgBlackWhite toPlay)
 {
     ++m_statistics.m_nuGenMove;
     if (m_searchMode == GOUCT_SEARCHMODE_PLAYOUTPOLICY)
@@ -183,8 +181,8 @@ SgPoint GoUctGlobalSearchPlayer::GenMove(const SgTimeRecord& time,
         if (move == SG_NULLMOVE)
         {
             // Shouldn't happen ?
-            SgWarning() <<
-                "GoUctGlobalSearchPlayer::GenMove: "
+            SgDebug() <<
+                "WARNING: GoUctGlobalSearchPlayer::GenMove: "
                 "Search generated SG_NULLMOVE\n";
             move = SG_PASS;
         }
@@ -294,7 +292,7 @@ void GoUctGlobalSearchPlayer::FindInitTree(SgBlackWhite toPlay)
         }
         if (node->HasProp(SG_PROP_MOVE))
         {
-            if (! HasMove(node, SgOppBW(toPlay)))
+            if (! HasMove(node, OppBW(toPlay)))
             {
                 SgDebug() <<
                     "GoUctGlobalSearchPlayer::FindInitTree: "
@@ -304,7 +302,7 @@ void GoUctGlobalSearchPlayer::FindInitTree(SgBlackWhite toPlay)
             SgPoint p = node->NodeMove();
             SG_ASSERT(p != SG_NULLMOVE);
             sequence.insert(sequence.begin(), p);
-            toPlay = SgOppBW(toPlay);
+            toPlay = OppBW(toPlay);
         }
         node = node->Father();
         if (node == 0)
@@ -322,8 +320,7 @@ void GoUctGlobalSearchPlayer::FindInitTree(SgBlackWhite toPlay)
             "Cannot reuse tree (search had different color)\n";
         return;
     }
-    SgUctTreeUtil::ExtractSubtree(m_search.Tree(), m_initTree, sequence,
-                                  true);
+    SgUctTreeUtil::ExtractSubtree(m_search.Tree(), m_initTree, sequence);
     size_t initTreeNodes = m_initTree.NuNodes();
     size_t oldTreeNodes = m_search.Tree().NuNodes();
     if (oldTreeNodes > 1 && initTreeNodes > 1)
@@ -355,18 +352,6 @@ string GoUctGlobalSearchPlayer::Name() const
     return "GoUctGlobalSearchPlayer";
 }
 
-void GoUctGlobalSearchPlayer::OnBoardChange()
-{
-    if (m_autoParam)
-    {
-        int size = Board().Size();
-        SgDebug() <<
-            "GoUctGlobalSearchPlayer: "
-            "Setting default parameters for size " << size << '\n';
-        m_search.SetDefaultParameters(size);
-    }
-}
-
 void GoUctGlobalSearchPlayer::Ponder()
 {
     if (! m_enablePonder || GoBoardUtil::EndOfGame(Board())
@@ -376,7 +361,7 @@ void GoUctGlobalSearchPlayer::Ponder()
     {
         // Don't ponder, wouldn't use the result in the next GenMove
         // anyway if reuseSubtree is not enabled
-        SgWarning() << "Pondering needs reuse_subtree enabled.\n";
+        SgDebug() << "Warning: Pondering needs reuse_subtree enabled.\n";
         return;
     }
     SgDebug() << "GoUctGlobalSearchPlayer::Ponder Start\n";
@@ -443,8 +428,8 @@ void GoUctGlobalSearchPlayer::SetPriorKnowledge(GoUctGlobalSearchPrior prior)
     case GOUCT_PRIORKNOWLEDGE_EVEN:
         factory = new SgUctPriorKnowledgeEvenFactory(30);
         break;
-    case GOUCT_PRIORKNOWLEDGE_DEFAULT:
-        factory = new GoUctDefaultPriorKnowledgeFactory(m_playoutPolicyParam);
+    case GOUCT_PRIORKNOWLEDGE_POLICY:
+        factory = new GoUctPolicyPriorKnowledgeFactory(m_playoutPolicyParam);
         break;
     default:
         SG_ASSERT(false);
