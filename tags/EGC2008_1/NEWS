@@ -1,0 +1,20 @@
+This file contains information about Fuego releases. It also contains a
+(probably incomplete) list of the most important changes or of all
+critical bugfixes in releases from a bugfix branch. For a detailed changelog
+of changes in the main development branch, consult the version control
+history.
+
+
+Current development version
+===========================
+
+* Declare data members of UCT nodes and signature statistis as volatile.
+  This avoids that the compiler reorders writes, which could cause crashes
+  if the UCT search is used in lock-free mode.
+
+
+Version 0.1 - 2008 May 30
+=========================
+
+Initial release. Compilation and functionality are tested on current Linux
+distributions (Fedora 8, Ubuntu 8.04 LTS) and Mac OS X.
