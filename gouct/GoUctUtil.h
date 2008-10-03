@@ -253,19 +253,16 @@ bool GoUctUtil::DoClumpCorrection(const BOARD& bd, SgPoint& p)
             p = nb;
             return true;
         }
-        else
+        // keep p if it was a connection move and nb does not connect at least
+        // the same blocks
+        SgPoint anchor[4 + 1];
+        bd.NeighborBlocks(p, toPlay, anchor);
+        SG_ASSERT(anchor[0] != SG_ENDPOINT); // at least 1 block
+        if (anchor[1] == SG_ENDPOINT // no connection, only 1 block
+            || SubsetOfBlocks<BOARD>(bd, anchor, nb))
         {
-            // keep p if it was a connection move and nb does not connect at
-            // least the same blocks
-            SgPoint anchor[4 + 1];
-            bd.NeighborBlocks(p, toPlay, anchor);
-            SG_ASSERT(anchor[0] != SG_ENDPOINT); // at least 1 block
-            if (anchor[1] == SG_ENDPOINT // no connection, only 1 block
-                || SubsetOfBlocks<BOARD>(bd, anchor, nb))
-            {
-                p = nb;
-                return true;
-            }
+            p = nb;
+            return true;
         }
     }
     return false;

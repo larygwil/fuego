@@ -54,8 +54,6 @@ bool IsCommandLine(const string& line)
     return (! trimmedLine.empty() && trimmedLine[0] != '#');
 }
 
-#if ! GTPENGINE_INTERRUPT
-
 /** Read next command from stream.
     @param in The input stream.
     @param[out] cmd The command (reused for efficiency)
@@ -65,13 +63,11 @@ bool ReadCommand(GtpCommand& cmd, istream& in)
 {
     string line;
     while (getline(in, line) && ! IsCommandLine(line))
-    {
-    }
+    { }
     Trim(line);
     cmd.Init(line);
     return ! in.fail();
 }
-#endif
 
 /** Replace empty lines in a multi-line string by lines containing a single
     space.

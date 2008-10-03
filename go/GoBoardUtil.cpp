@@ -864,11 +864,3 @@ int GoBoardUtil::Approx2Libs(const GoBoard& board, SgPoint block,
 }
 
 //----------------------------------------------------------------------------
-
-std::ostream& operator<<(std::ostream& out, const GoBoardWrite::WriteMap& w)
-{
-    w.Points().Write(out, w.Board().Size());
-    return out;
-}
-
-//----------------------------------------------------------------------------

@@ -30,6 +30,25 @@ using namespace std;
 
 //----------------------------------------------------------------------------
 
+namespace {
+
+bool HasMove(const SgNode* node, SgBlackWhite color)
+{
+    return ((color == SG_BLACK && node->HasProp(SG_PROP_MOVE_BLACK))
+            || (color == SG_WHITE && node->HasProp(SG_PROP_MOVE_WHITE)));
+}
+
+bool HasSetup(const SgNode* node)
+{
+    return (node->HasProp(SG_PROP_ADD_BLACK)
+            || node->HasProp(SG_PROP_ADD_WHITE)
+            || node->HasProp(SG_PROP_ADD_EMPTY));
+}
+
+} // namespace
+
+//----------------------------------------------------------------------------
+
 GoUctPlayer::Statistics::Statistics()
 {
     Clear();
@@ -69,7 +88,6 @@ GoUctPlayer::GoUctPlayer(GoBoard& bd)
       m_lastBoardSize(-1),
       m_priorKnowledge(GOUCT_PRIORKNOWLEDGE_DEFAULT),
       m_maxGames(100000),
-      m_resignMinGames(3000),
       m_search(Board(),
                new GoUctPlayoutPolicyFactory<GoUctBoard>(
                                                       m_playoutPolicyParam)),
@@ -93,27 +111,12 @@ void GoUctPlayer::ClearStatistics()
     m_statistics.Clear();
 }
 
-/** Verify that the move selected by DoEarlyPassSearch is viable.
-    Prevent blunders from so-called neutral moves that are not.
-*/
-bool GoUctPlayer::VerifyNeutralMove(size_t maxGames, double maxTime,
-                                    SgPoint move)
-{
-    GoBoard& bd = Board();
-    bd.Play(move);
-    vector<SgPoint> sequence;
-    double value = m_search.Search(maxGames, maxTime, sequence);
-    value = m_search.InverseEval(value);
-    bd.Undo();
-    return value >= 1 - m_resignThreshold;
-}
-
 /** Perform a search after playing a pass and see if it is still a win and
     all points are safe as determined by territory statistics.
     @param maxGames Maximum simulations for the search
     @param maxTime Maximum time for the search
     @param[out] move The move to play (pass or a neutral point to fill)
-    @return @c true, if it is still a win and everything is safe after a pass
+    @return @true, if it is still a win and everything is safe after a pass
 */
 bool GoUctPlayer::DoEarlyPassSearch(size_t maxGames, double maxTime,
                                     SgPoint& move)
@@ -167,13 +170,13 @@ bool GoUctPlayer::DoEarlyPassSearch(size_t maxGames, double maxTime,
                 }
             if (isSafeToPlayAdj && isSafeOppAdj)
             {
-                if (bd.IsLegal(*it) && ! GoBoardUtil::SelfAtari(bd, *it))
+                if (bd.IsLegal(*it))
                     move = *it;
                 else
                 {
                     SgDebug() <<
                         "GoUctPlayer: no early pass possible"
-                        " (neutral illegal or self-atari)\n";
+                        " (neutral illegal)\n";
                     return false;
                 }
             }
@@ -187,14 +190,8 @@ bool GoUctPlayer::DoEarlyPassSearch(size_t maxGames, double maxTime,
     }
     if (move == SG_PASS)
         SgDebug() << "GoUctPlayer: early pass is possible\n";
-    else if (VerifyNeutralMove(maxGames, maxTime, move))
-        SgDebug() << "GoUctPlayer: generate play on neutral point\n";
     else
-    {
-        SgDebug() << "GoUctPlayer: neutral move failed to verify\n";
-        return false;
-    }
-    
+        SgDebug() << "GoUctPlayer: generate play on neutral point\n";
     return true;
 }
 
@@ -240,10 +237,8 @@ SgPoint GoUctPlayer::DoSearch(SgBlackWhite toPlay, double maxTime,
     vector<SgPoint> sequence;
     const bool earlyAbort = true;
     const float earlyAbortThreshold = 1 - m_resignThreshold;
-    const int earlyAbortReductionFactor = 3;
     float value = m_search.Search(m_maxGames, maxTime, sequence, rootFilter,
-                                  initTree, earlyAbort, earlyAbortThreshold,
-                                  m_resignMinGames, earlyAbortReductionFactor);
+                                  initTree, earlyAbort, earlyAbortThreshold);
 
     // Write debug output to a string stream first to avoid intermingling
     // of debug output with response in GoGui GTP shell
@@ -259,8 +254,7 @@ SgPoint GoUctPlayer::DoSearch(SgBlackWhite toPlay, double maxTime,
             << timeRootFilter << '\n';
     SgDebug() << out.str();
 
-    if (value < m_resignThreshold
-        && m_search.Tree().Root().MoveCount() >= m_resignMinGames)
+    if (value < m_resignThreshold)
         return SG_RESIGN;
 
     SgPoint move;
@@ -272,15 +266,14 @@ SgPoint GoUctPlayer::DoSearch(SgBlackWhite toPlay, double maxTime,
         move = GoUctSearchUtil::TrompTaylorPassCheck(move, m_search);
     }
 
-    // If SgUctSearch aborted early, 
-    // use the remaining time/nodes for doing a search, if an early
+    // If SgUctSearch aborted after half the time/nodes, because of early
+    // abort, we use the remaining time/nodes for doing a search, if an early
     // pass is possible
     if (m_search.WasEarlyAbort())
     {
         maxTime -= timer.GetTime();
         SgPoint earlyPassMove;
-        if (DoEarlyPassSearch(m_maxGames / earlyAbortReductionFactor, 
-                              maxTime, earlyPassMove))
+        if (DoEarlyPassSearch(m_maxGames / 2, maxTime, earlyPassMove))
             return earlyPassMove;
     }
 
@@ -435,15 +428,8 @@ void GoUctPlayer::OnBoardChange()
 
 void GoUctPlayer::Ponder()
 {
-    const GoBoard& bd = Board();
-    if (! m_enablePonder || GoBoardUtil::EndOfGame(bd)
+    if (! m_enablePonder || GoBoardUtil::EndOfGame(Board())
         || m_searchMode != GOUCT_SEARCHMODE_UCT)
-        return;
-    // Don't start pondering if board is empty. Avoids that the program starts
-    // hogging the machine immediately after startup (and before the game has
-    // even started). The first move will be from the opening book in
-    // tournaments anyway.
-    if (bd.TotalNumStones(SG_BLACK) == 0 && bd.TotalNumStones(SG_WHITE) == 0)
         return;
     if (! m_reuseSubtree)
     {
@@ -455,7 +441,7 @@ void GoUctPlayer::Ponder()
     SgDebug() << "GoUctPlayer::Ponder: start\n";
     // Don't ponder forever to avoid hogging the machine
     double maxTime = 3600; // 60 min
-    DoSearch(bd.ToPlay(), maxTime, true);
+    DoSearch(Board().ToPlay(), maxTime, true);
     SgDebug() << "GoUctPlayer::Ponder: end\n";
 }
 

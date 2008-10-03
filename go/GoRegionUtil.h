@@ -29,18 +29,12 @@ namespace GoRegionUtil
                            SgBlackWhite color,
                            const SgList<SgPoint>& boundaryAnchors);
 
-    /** Test if pts has 2 IP or eyes.
-        Has2IPorEyes is called after all interior points are 2conn proved.
-        It returns true if two intersection points are found or single
-        boundary block forms two separate eyes.
-    */
+    /** Test if pts has 2 IP or eyes */
     bool Has2IPorEyes(const GoBoard& board, const SgPointSet& pts,
                       SgBlackWhite color,
                       const SgList<SgPoint>& boundaryAnchors);
 
-    /** Do pts belong to only one block?
-        pts must be non-empty.
-    */
+    /** Do pts belong to only one block? */
     bool IsSingleBlock(const GoBoard& board, const SgPointSet& pts,
                        SgBlackWhite color);
 

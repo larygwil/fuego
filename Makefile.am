@@ -3,7 +3,6 @@ ACLOCAL_AMFLAGS = -I m4
 SUBDIRS = \
 book \
 regression \
-misctests \
 gtpengine \
 smartgame \
 go \

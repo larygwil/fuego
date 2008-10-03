@@ -14,9 +14,7 @@ using namespace std;
 //----------------------------------------------------------------------------
 
 GoUctPlayoutPolicyParam::GoUctPlayoutPolicyParam()
-    : m_statisticsEnabled(false),
-      m_useNakadeHeuristic(false),
-      m_fillboardTries(0)
+    : m_statisticsEnabled(false)
 {
 }
 
@@ -24,13 +22,9 @@ GoUctPlayoutPolicyParam::GoUctPlayoutPolicyParam()
 
 const char* GoUctPlayoutPolicyTypeStr(GoUctPlayoutPolicyType type)
 {
-    BOOST_STATIC_ASSERT(_GOUCT_NU_DEFAULT_PLAYOUT_TYPE == 11);
+    BOOST_STATIC_ASSERT(_GOUCT_NU_DEFAULT_PLAYOUT_TYPE == 9);
     switch (type)
     {
-    case GOUCT_FILLBOARD:
-        return "Fillboard";
-    case GOUCT_NAKADE:
-        return "Nakade";
     case GOUCT_ATARI_CAPTURE:
         return "AtariCapture";
     case GOUCT_ATARI_DEFEND:

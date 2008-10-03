@@ -54,11 +54,7 @@ inline void SG_UNUSED(const T&)
 
 //----------------------------------------------------------------------------
 
-// Explicit inlining attributes. The macros are defined as non-empty only
-// if supported by the compiler (note that Intel ICC also defines __GNUC__,
-// but would ignore the attributes with a warning)
-
-#if defined(__GNUC__) && ! defined(__ICC)
+#ifdef __GNUC__
 #define SG_ATTR_ALWAYS_INLINE __attribute__((always_inline))
 #define SG_ATTR_NOINLINE __attribute__((noinline))
 #else
@@ -66,8 +62,7 @@ inline void SG_UNUSED(const T&)
 #define SG_ATTR_ALWAYS_INLINE
 #endif
 
-#if defined(__GNUC__) && ! defined(__ICC) && \
-    (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1))
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1)
 #define SG_ATTR_FLATTEN __attribute__((flatten))
 #else
 #define SG_ATTR_FLATTEN

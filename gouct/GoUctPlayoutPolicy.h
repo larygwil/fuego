@@ -23,19 +23,6 @@ public:
     */
     bool m_statisticsEnabled;
 
-    /** Use Nakade heuristic.
-        See section 6.2 of: Chatriot, Gelly, Hoock, Perez, Rimmel, Teytaud:
-        <a href="http://www.lri.fr/~teytaud/eg.pdf">
-        Combining expert, offline, transient and online learning in
-        Monte-Carlo exploration</a>
-    */
-    bool m_useNakadeHeuristic;
-
-    /** See GoUctPureRandomGenerator::GenerateFillboardMove.
-        Default is 0
-    */
-    int m_fillboardTries;
-
     GoUctPlayoutPolicyParam();
 };
 
@@ -44,10 +31,6 @@ public:
 /** Move types used in GoUctPlayoutPolicy. */
 enum GoUctPlayoutPolicyType
 {
-    GOUCT_FILLBOARD,
-
-    GOUCT_NAKADE,
-
     GOUCT_ATARI_CAPTURE,
 
     GOUCT_ATARI_DEFEND,
@@ -261,10 +244,6 @@ private:
 
     /** Generate low lib moves around lastMove */
     bool GenerateLowLibMove(SgPoint lastMove);
-
-    bool GenerateNakadeMove();
-
-    void GenerateNakadeMove(SgPoint p);
 
     /** Generate pattern move around last two moves */
     bool GeneratePatternMove();
@@ -531,28 +510,13 @@ SG_ATTR_FLATTEN SgPoint GoUctPlayoutPolicy<BOARD>::GenerateMove()
 {
     m_moves.Clear();
     m_checked = false;
-
     SgPoint mv = SG_NULLMOVE;
-
-    if (m_param.m_fillboardTries > 0)
-    {
-        m_moveType = GOUCT_FILLBOARD;
-        mv = m_pureRandomGenerator.GenerateFillboardMove(
-                                                     m_param.m_fillboardTries);
-    }
-
     m_lastMove = m_bd.GetLastMove();
-    if (mv == SG_NULLMOVE
-        && ! SgIsSpecialMove(m_lastMove) // skip if Pass or Null
+    if (   ! SgIsSpecialMove(m_lastMove) // skip if Pass or Null
         && ! m_bd.IsEmpty(m_lastMove) // skip if move was suicide
        )
     {
-        if (m_param.m_useNakadeHeuristic && GenerateNakadeMove())
-        {
-            m_moveType = GOUCT_NAKADE;
-            mv = SelectRandom();
-        }
-        if (mv == SG_NULLMOVE && GenerateAtariCaptureMove())
+        if (GenerateAtariCaptureMove())
         {
             m_moveType = GOUCT_ATARI_CAPTURE;
             mv = SelectRandom();
@@ -606,67 +570,6 @@ SG_ATTR_FLATTEN SgPoint GoUctPlayoutPolicy<BOARD>::GenerateMove()
         UpdateStatistics();
 
     return mv;
-}
-
-/** Nakade heuristic.
-    If there is a region of three empty points adjacent to last move, play in
-    the center of the region.
-*/
-template<class BOARD>
-bool GoUctPlayoutPolicy<BOARD>::GenerateNakadeMove()
-{
-    SG_ASSERT(m_moves.IsEmpty());
-    SG_ASSERT(! SgIsSpecialMove(m_lastMove));
-    GenerateNakadeMove(m_lastMove + SG_NS);
-    GenerateNakadeMove(m_lastMove - SG_NS);
-    GenerateNakadeMove(m_lastMove + SG_WE);
-    GenerateNakadeMove(m_lastMove - SG_WE);
-    // Ignore duplicates in move list, happens rarely
-    return ! m_moves.IsEmpty();
-}
-
-template<class BOARD>
-void GoUctPlayoutPolicy<BOARD>::GenerateNakadeMove(SgPoint p)
-{
-    SgBlackWhite toPlay = m_bd.ToPlay();
-    if (m_bd.IsEmpty(p) && m_bd.NumNeighbors(p, toPlay) == 0)
-    {
-        int numEmptyNeighbors = m_bd.NumEmptyNeighbors(p);
-        if (numEmptyNeighbors == 2)
-        {
-            int n = 0;
-            for (SgNb4Iterator it(p); it; ++it)
-                if (m_bd.IsEmpty(*it))
-                {
-                    if (m_bd.NumEmptyNeighbors(*it) != 1
-                        || m_bd.NumNeighbors(*it, toPlay) > 0)
-                        return;
-                    if (++n > 2)
-                        break;
-                }
-            m_moves.Append(p);
-        }
-        else if (numEmptyNeighbors == 1)
-        {
-            for (SgNb4Iterator it(p); it; ++it)
-                if (m_bd.IsEmpty(*it))
-                {
-                    if (m_bd.NumEmptyNeighbors(*it) != 2
-                        || m_bd.NumNeighbors(*it, toPlay) > 0)
-                        return;
-                    for (SgNb4Iterator it2(*it); it2; ++it2)
-                        if (m_bd.IsEmpty(*it2) && *it2 != p)
-                        {
-                            if (m_bd.NumEmptyNeighbors(*it2) == 1
-                                && m_bd.NumNeighbors(*it2, toPlay) == 0)
-                                m_moves.Append(*it);
-                            break;
-                        }
-                    break;
-                }
-
-        }
-    }
 }
 
 /** Pattern heuristic.

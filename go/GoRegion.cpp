@@ -34,15 +34,57 @@ using GoSafetyUtil::MightMakeLife;
 
 //----------------------------------------------------------------------------
 
-static const bool CHECK = SG_CHECK && true;
+const bool CHECK = SG_CHECK && true;
 
-static const bool HEAVYCHECK = SG_HEAVYCHECK && CHECK && false;
+const bool HEAVYCHECK = SG_HEAVYCHECK && CHECK && false;
 
-static const bool WRITEDEBUG = false;
+const bool WRITEDEBUG = false;
 
 //----------------------------------------------------------------------------
 
 namespace {
+
+/** Two intersection points in region */
+bool Has2IPs(const GoBoard& board, const SgPointSet& points,
+             SgPointSet& boundary)
+{
+    SgPointSet jointLibs(points & board.AllEmpty());
+    if (jointLibs.MaxSetSize(1))
+        return false;
+
+    // AR: can speed this up a lot.
+    ExpandToBlocks(board, boundary); // compute boundary blocks
+    const int size = board.Size();
+    for (SgConnCompIterator it(boundary, board.Size()); it; ++it)
+        // restrict to liberties common to all blocks
+        jointLibs &= (*it).Border(size);
+    if (jointLibs.MinSetSize(2))
+    {
+        // check if libs are intersection pts
+        int nuIPs = 0;
+        for (SgSetIterator it(jointLibs); it; ++it)
+        {
+            if (IsSplitPt(*it, points))
+            {
+                if (++nuIPs >= 2)
+                    return true;
+            }
+        }
+    }
+    return false;
+}
+
+/** reduce points list to those in region */
+void Filter(const SgPointSet& region, SgList<SgPoint>* points)
+{
+    SgList<SgPoint> regionPoints;
+    for (SgListIterator<SgPoint> it(*points); it; ++it)
+        if (region.Contains(*it))
+            regionPoints.Append(*it);
+
+    regionPoints.SwapWith(points);
+}
+
 
 /** Is p adjacent to all blocks?
     GoRegionUtil has an identical function taking a list of anchorss.
@@ -558,6 +600,8 @@ bool GoRegion::ComputeIs1Vital() const
     else if (ComputedFlag(isStatic1Vital))
         /* */ return GetFlag(isStatic1Vital); /* */
 
+    bool twoLibs = false;
+    bool protCuts = false;
     bool is1Vital = true;
 
     if (! HasLibForAllBlocks()) // no lib here
@@ -566,10 +610,15 @@ bool GoRegion::ComputeIs1Vital() const
     {
         if (const_cast<GoRegion*>(this)->ComputeAndGetFlag(protectedCuts))
         {
-            is1Vital = true;
+            is1Vital = true; protCuts = true;
         }
-        else if (! Find2ConnForAll())
-            is1Vital = false;
+        else // type 2: single block, two libs for each interior point
+        {
+            if (Find2ConnForAll())
+                twoLibs = true;
+            else
+                is1Vital = false;
+        }
     }
 
     return is1Vital;

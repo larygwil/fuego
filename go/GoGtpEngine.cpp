@@ -550,7 +550,6 @@ void GoGtpEngine::CmdKomi(GtpCommand& cmd)
     try
     {
         GoKomi komi(cmd.Arg(0));
-        GetGame().Root().SetRealProp(SG_PROP_KOMI, komi.ToFloat(), 1);
         m_defaultRules.SetKomi(komi);
         Board().Rules().SetKomi(komi);
         RulesChanged();
@@ -820,7 +819,7 @@ void GoGtpEngine::CmdPlaceFreeHandicap(GtpCommand& cmd)
     {
         stones = GoGtpCommandUtil::GetHandicapStones(size, n);
     }
-    catch (const GtpFailure&)
+    catch (const GtpFailure& e)
     {
     }
     if (stones.Length() < n && m_player != 0)
@@ -987,7 +986,7 @@ void GoGtpEngine::CmdRules(GtpCommand& cmd)
     {
         SetNamedRules(arg);
     }
-    catch (const SgException&)
+    catch (const SgException& e)
     {
         throw GtpFailure() << "unknown rules: " << arg;
     }

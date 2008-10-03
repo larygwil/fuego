@@ -302,7 +302,7 @@ void GoUctCommands::CmdFinalStatusList(GtpCommand& cmd)
                     return;
                 averageStatus.Add(territoryStatistics[*it2].Mean());
             }
-            const float threshold = 0.3;
+            const float threshold = 0.2;
             isDead =
                 ((c == SG_BLACK && averageStatus.Mean() < threshold)
                  || (c == SG_WHITE && averageStatus.Mean() > 1 - threshold));
@@ -404,7 +404,6 @@ void GoUctCommands::CmdParamGlobalSearch(GtpCommand& cmd)
     @arg @c max_nodes See GoUctPlayer::MaxNodes
     @arg @c max_time See GoUctPlayer::MaxTime
     @arg @c prior_knowledge @c none|even|policy See GoUctPlayer::PriorKnowledge
-    @arg @c resign_min_games See GoUctPlayer::ResignMinGames
     @arg @c resign_threshold See GoUctPlayer::ResignThreshold
     @arg @c search_mode @c playout|uct|one_ply See GoUctPlayer::SearchMode
 */
@@ -427,7 +426,6 @@ void GoUctCommands::CmdParamPlayer(GtpCommand& cmd)
             << "[string] max_time " << p.MaxTime() << '\n'
             << "[list/none/even/default] prior_knowledge "
             << PriorKnowledgeToString(p.PriorKnowledge()) << '\n'
-            << "[string] resign_min_games " << p.ResignMinGames() << '\n'
             << "[string] resign_threshold " << p.ResignThreshold() << '\n'
             << "[list/playout_policy/uct/one_ply] search_mode "
             << SearchModeToString(p.SearchMode()) << '\n';
@@ -455,8 +453,6 @@ void GoUctCommands::CmdParamPlayer(GtpCommand& cmd)
             p.SetMaxTime(cmd.FloatArg(1));
         else if (name == "prior_knowledge")
             p.SetPriorKnowledge(PriorKnowledgeArg(cmd, 1));
-        else if (name == "resign_min_games")
-            p.SetResignMinGames(cmd.SizeTypeArg(1));
         else if (name == "resign_threshold")
             p.SetResignThreshold(cmd.FloatArg(1));
         else if (name == "search_mode")
@@ -472,12 +468,8 @@ void GoUctCommands::CmdParamPlayer(GtpCommand& cmd)
     This command is compatible with the GoGui analyze command type "param".
 
     Parameters:
-    @arg @c statistics_enabled
-        See GoUctPlayoutPolicyParam::m_statisticsEnabled
-    @arg @c nakade_heuristic
-        See GoUctPlayoutPolicyParam::m_useNakadeHeuristic
-    @arg @c fillboard_tries
-        See GoUctPlayoutPolicyParam::m_fillboardTries
+    @arg @c statistics_enables
+      See GoUctPlayoutPolicyParam::m_statisticsEnabled
 */
 void GoUctCommands::CmdParamPolicy(GtpCommand& cmd)
 {
@@ -487,19 +479,13 @@ void GoUctCommands::CmdParamPolicy(GtpCommand& cmd)
     {
         // Boolean parameters first for better layout of GoGui parameter
         // dialog, alphabetically otherwise
-        cmd << "[bool] nakade_heuristic " << p.m_useNakadeHeuristic << '\n'
-            << "[bool] statistics_enabled " << p.m_statisticsEnabled << '\n'
-            << "fillboard_tries " << p.m_fillboardTries << '\n';
+        cmd << "[bool] statistics_enabled " << p.m_statisticsEnabled << '\n';
     }
     else if (cmd.NuArg() == 2)
     {
         string name = cmd.Arg(0);
-        if (name == "nakade_heuristic")
-            p.m_useNakadeHeuristic = cmd.BoolArg(1);
-        else if (name == "statistics_enabled")
+        if (name == "statistics_enabled")
             p.m_statisticsEnabled = cmd.BoolArg(1);
-        else if (name == "fillboard_tries")
-            p.m_fillboardTries = cmd.IntArg(1);
         else
             throw GtpFailure() << "unknown parameter: " << name;
     }
@@ -542,7 +528,6 @@ void GoUctCommands::CmdParamRootFilter(GtpCommand& cmd)
     This command is compatible with the GoGui analyze command type "param".
 
     Parameters:
-    @arg @c abort_out_of_mem See SgUctSearch::AbortOutOfMem
     @arg @c keep_games See GoUctSearch::KeepGames
     @arg @c lock_free See SgUctSearch::LockFree
     @arg @c log_games See SgUctSearch::LogGames
@@ -568,8 +553,7 @@ void GoUctCommands::CmdParamSearch(GtpCommand& cmd)
     {
         // Boolean parameters first for better layout of GoGui parameter
         // dialog, alphabetically otherwise
-        cmd << "[bool] abort_out_of_mem " << s.AbortOutOfMem() << '\n'
-            << "[bool] keep_games " << s.KeepGames() << '\n'
+        cmd << "[bool] keep_games " << s.KeepGames() << '\n'
             << "[bool] lock_free " << s.LockFree() << '\n'
             << "[bool] log_games " << s.LogGames() << '\n'
             << "[bool] no_bias_term " << s.NoBiasTerm() << '\n'
@@ -593,9 +577,7 @@ void GoUctCommands::CmdParamSearch(GtpCommand& cmd)
     else if (cmd.NuArg() == 2)
     {
         string name = cmd.Arg(0);
-        if (name == "abort_out_of_mem")
-            s.SetAbortOutOfMem(cmd.BoolArg(1));
-        else if (name == "keep_games")
+        if (name == "keep_games")
             s.SetKeepGames(cmd.BoolArg(1));
         else if (name == "lock_free")
             s.SetLockFree(cmd.BoolArg(1));
@@ -956,7 +938,7 @@ GoUctPlayer& GoUctCommands::Player()
     {
         return dynamic_cast<GoUctPlayer&>(*m_player);
     }
-    catch (const bad_cast&)
+    catch (const bad_cast& e)
     {
         throw GtpFailure("player not GoUctPlayer");
     }
@@ -1019,7 +1001,7 @@ GoUctSearch& GoUctCommands::Search()
             dynamic_cast<GoUctObjectWithSearch&>(*m_player);
         return object.Search();
     }
-    catch (const bad_cast&)
+    catch (const bad_cast& e)
     {
         throw GtpFailure("player is not a GoUctObjectWithSearch");
     }
@@ -1041,7 +1023,7 @@ GoUctCommands::ThreadState(std::size_t threadId)
              GoUctGlobalSearchState<GoUctPlayoutPolicy<GoUctBoard> >&>(
                                                 search.ThreadState(threadId));
     }
-    catch (const bad_cast&)
+    catch (const bad_cast& e)
     {
         throw GtpFailure("player has no GoUctGlobalSearchState");
     }
