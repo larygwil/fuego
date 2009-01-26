@@ -35,17 +35,17 @@ const bool DEBUG_SEARCH_ITERATIONS = false;
 */
 string SgValue::ToString(int unitPerPoint) const
 {
-    if (m_value == 0)
+    if (m_v == 0)
         return "0";
     ostringstream o;
-    o << (m_value > 0 ? "B+" : "W+");
+    o << (m_v > 0 ? "B+" : "W+");
     if (IsEstimate())
     {
         if (unitPerPoint == 1)
-            o << (abs(m_value) / unitPerPoint);
+            o << (abs(m_v) / unitPerPoint);
         else
             o << setprecision(1)
-              << (static_cast<float>(abs(m_value)) / unitPerPoint);
+              << (static_cast<float>(abs(m_v)) / unitPerPoint);
     }
     else
     {
@@ -72,7 +72,7 @@ int SgValue::KoLevel() const
         return 0;
     else
     {
-        int level = (abs(m_value) - 1) / MAX_DEPTH;
+        int level = (abs(m_v) - 1) / MAX_DEPTH;
         return (MAX_LEVEL - 1) - level;
     }
 }
@@ -162,6 +162,7 @@ SgSearch::SgSearch(SgSearchHashTable* hash)
       m_useOpponentBest(0),
       m_useNullMove(0),
       m_nullMoveDepth(2),
+      m_halfDeltaForHashHit(false),
       m_aborted(false),
       m_foundNewBest(false),
       m_reachedDepthLimit(false),
@@ -725,7 +726,12 @@ int SgSearch::SearchEngine(int depth, int alpha, int beta,
                 }
             }
 
-            int delta = DEPTH_UNIT;
+            // The move suggested by the hash table is likely to be a good
+            // move: try it first. Looking twice as deep for moves found
+            // in the hash-table is a great heuristic: it cuts the average
+            // node count for capture problems in half!
+            int delta = m_halfDeltaForHashHit ? DEPTH_UNIT/2 : DEPTH_UNIT;
+
             if (tryFirst != SG_NULLMOVE
                 && CallExecute(tryFirst, &delta, depth))
             {

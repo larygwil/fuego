@@ -5,10 +5,16 @@ of changes in the main development branch, consult the version control
 history.
 
 
-Current development version
+Version 0.3.1 - 2008 Jan 26
 ===========================
 
-* Remove SgStreamFmtRestorer; use Boost IO State Savers instead 
+* Fix bug in GoBoardUtil::ReduceToAnchors (the version which passes SgSList)
+* Fix bug in SgTimeControl that caused it to allocate infinite time for move
+  if GetPositionInfo() returned zero for remaining moves
+* Fix GoKomi::ToString() for komi -0.5
+* Add missing files regression/*.suite to distribution
+* Mark SgStreamFmtRestorer as deprecated
+* Small fixes in documentation
 
 
 Version 0.3 - 2008 Dec 17

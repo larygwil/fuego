@@ -17,28 +17,24 @@
 
 namespace {
 
-/** Special case of single boundary block */
-bool Has2IntersectionPoints(const GoBoard& board, const SgPointSet& region, 
-                            const SgPoint boundaryAnchor)
-{
-    int nuIPs = 0;
-    for (GoBoard::LibertyIterator it(board, boundaryAnchor); it; ++it)
-    {
-        if (   region.Contains(*it)
-            && GoEyeUtil::IsSplitPt(*it, region)
-            && ++nuIPs >= 2
-           )
-            return true;
-    }
-    return false;
-}
-
-/** Do liberties of boundary blocks contain 2 intersection points? */
 bool Has2IntersectionPoints(const GoBoard& board, const SgPointSet& region, 
                             const SgList<SgPoint>& boundaryAnchors)
 {
     if (boundaryAnchors.IsLength(1)) // single block
-        return Has2IntersectionPoints(board, region, boundaryAnchors.Tail());
+    {
+        int nuIPs = 0;
+        for (GoBoard::LibertyIterator it(board, boundaryAnchors.Tail()); it;
+             ++it)
+        {
+            if (region.Contains(*it) && GoEyeUtil::IsSplitPt(*it, region))
+            {
+                ++nuIPs;
+                if (nuIPs >= 2)
+                    return true;
+            }
+        }
+        return false;
+    }
     else // compute joint liberties of all blocks in region.
     {
         SgList<SgPoint> sharedLibs;
@@ -46,7 +42,6 @@ bool Has2IntersectionPoints(const GoBoard& board, const SgPointSet& region,
              ++it)
             if (region.Contains(*it))
                 sharedLibs.Append(*it);
-
         if (sharedLibs.MaxLength(1))
             return false;
         bool first = true;
@@ -57,7 +52,7 @@ bool Has2IntersectionPoints(const GoBoard& board, const SgPointSet& region,
             else // keep those sharedLibs that are libs of block
             {
                 SgList<SgPoint> newShared;
-                const SgPoint block = *it;
+                SgPoint block = *it;
                 for (GoBoard::LibertyIterator it(board, block); it; ++it)
                     if (sharedLibs.Contains(*it))
                         newShared.Append(*it);
@@ -73,10 +68,11 @@ bool Has2IntersectionPoints(const GoBoard& board, const SgPointSet& region,
         int nuIPs = 0;
         for (SgListIterator<SgPoint> it(sharedLibs); it; ++it)
         {
-            if (   GoEyeUtil::IsSplitPt(*it, region)
-                && ++nuIPs >= 2
-               )
+            if (GoEyeUtil::IsSplitPt(*it, region))
+            {   ++nuIPs;
+                if (nuIPs >= 2)
                     /* */ return true; /* */
+            }
         }
         return false;
     }
@@ -94,17 +90,19 @@ inline bool IsAdjacentToAll(const GoBoard& board, SgPoint p,
     return true;
 }
 
-/** A simple test if the 2-vital search has produced a two-eyed group.
-    @todo To be replaced by incremental region code, which will recognize the
-    eye regions.
-    Right now, test only for special cases, not even Benson.
-        1. single block 2 eyes
-        2. simple check for 2 blocks
-*/
+// a simple test if the 2-vital search has produced a two-eyed group.
+// to be replaced by incremental region code, which will recognize the
+// eye regions.
+// Right now, testing only for single block 2 eyes, not even Benson.
+// 2006/1/9, added simple check for 2 blocks @todo: more general!
 bool TwoSeparateEyes(const GoBoard& bd, const SgPointSet& pts,
                      const SgPointSet& boundary, SgBlackWhite color)
 {
     SG_ASSERT((pts & bd.AllEmpty()).SubsetOf(boundary.Border(bd.Size())));
+
+    //return IsSingleBlock(bd, boundary, color) 
+    //        && pts.Disjoint(bd.All(color)) // no weak own stones inside
+    //        && ! pts.IsConnected();
     
     if (pts.Disjoint(bd.All(color)) && ! pts.IsConnected())
     {
@@ -112,12 +110,16 @@ bool TwoSeparateEyes(const GoBoard& bd, const SgPointSet& pts,
             return true;
         else
         {
-            const SgPointSet area = pts & bd.AllEmpty();
+            SgPointSet area = pts & bd.AllEmpty();
             if ( area.MinSetSize(2))
             {
                 for (SgSetIterator it(area); it; ++it)
+                {
                     if (bd.IsLegal(*it, SgOppBW(color)))
+                    {   
                         return false;
+                    }
+                }
                 return true;
             }
         }
@@ -135,7 +137,10 @@ void GoRegionUtil::FindCurrentAnchors(const GoBoard& board,
 {
     SG_ASSERT(currentAnchors->IsEmpty());
     for (SgListIterator<SgPoint> it(origAnchors); it; ++it)
-        currentAnchors->Insert(board.Anchor(*it));
+    {
+        SgPoint a = board.Anchor(*it);
+        currentAnchors->Insert(a);
+    }
 }
 
 bool GoRegionUtil::Has2IPorEyes(const GoBoard& board, const SgPointSet& pts,
@@ -143,10 +148,10 @@ bool GoRegionUtil::Has2IPorEyes(const GoBoard& board, const SgPointSet& pts,
                                 const SgList<SgPoint>& boundaryAnchors)
 {
     return     Has2IntersectionPoints(board, pts, boundaryAnchors) 
-            || (   boundaryAnchors.IsLength(1) 
+            || (   boundaryAnchors.Length() == 1 
                 && pts.Disjoint(board.All(color)) 
                 && ! pts.IsConnected()
-               );
+                );
 }
 
 bool GoRegionUtil::Has2SureLiberties(const GoBoard& board,
@@ -158,7 +163,7 @@ bool GoRegionUtil::Has2SureLiberties(const GoBoard& board,
     SgPointSet boundary(pts.Border(size));
     if (! boundary.SubsetOf(board.All(color)))
     {
-        return false; // no result of open area
+        return false; // no result of opened area
     }
     else
     {
@@ -191,7 +196,7 @@ bool GoRegionUtil::IsSingleBlock(const GoBoard& board, const SgPointSet& pts,
     for (SgSetIterator it(pts); it; ++it)
     {
         SG_ASSERT(board.IsColor(*it, color));
-        const SgPoint anchor = board.Anchor(*it);
+        SgPoint anchor = board.Anchor(*it);
         if (anchor != firstAnchor)
         {
             if (firstAnchor == SG_NULLPOINT)
@@ -231,7 +236,7 @@ bool GoRegionUtil::StaticIs1VitalAndConnected(const GoBoard& board,
         int nuConn = 0;
         for (SgSetIterator it(pts); it; ++it)
         {
-            const SgPoint p(*it);
+            SgPoint p(*it);
             if (board.IsEmpty(p) && IsAdjacentToAll(board, p, anchors))
             {   // test if boundary stones can be connected by playing p
                 if (++nuConn >= 2)

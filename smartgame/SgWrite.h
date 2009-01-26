@@ -31,7 +31,7 @@ public:
         : m_label(label)
     { }
 
-    friend std::ostream& operator<<(std::ostream& out,
+    friend std::ostream& operator<<(std::ostream& stream,
                                     const SgWriteLabel& w);
 
 private:
@@ -124,16 +124,16 @@ class SgWriteMove
 {
 public:
     SgWriteMove(SgPoint point, SgBlackWhite color)
-        : m_point(point),
-          m_color(color)
+        : m_p(point),
+          m_c(color)
     { }
 
 private:
     friend std::ostream& operator<<(std::ostream& out, const SgWriteMove &w);
 
-    SgPoint m_point;
+    SgPoint m_p;
 
-    SgBlackWhite m_color;
+    SgBlackWhite m_c;
 };
 
 //----------------------------------------------------------------------------
@@ -145,7 +145,7 @@ public:
     SgWriteLine()
     { }
 
-    friend std::ostream& operator<<(std::ostream& out,
+    friend std::ostream& operator<<(std::ostream& stream,
                                     const SgWriteLine &w);
 };
 
@@ -155,12 +155,12 @@ public:
 class SgWriteBoolean
 {
 public:
-    explicit SgWriteBoolean(bool value) : m_value(value) {}
+    explicit SgWriteBoolean(bool b) : m_b(b) {}
 
 private:
-    friend std::ostream& operator<<(std::ostream& out,
+    friend std::ostream& operator<<(std::ostream& stream,
                                     const SgWriteBoolean &w);
-    bool m_value;
+    bool m_b;
 };
 
 //----------------------------------------------------------------------------

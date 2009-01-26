@@ -96,21 +96,21 @@ public:
     std::string ToString(int unitPerPoint = 1) const;
 
 private:
-    int m_value;
+    int m_v;
 };
 
 inline SgValue::SgValue()
-    : m_value(0)
+    : m_v(0)
 { }
 
 inline SgValue::SgValue(int v)
-    : m_value(v)
+    : m_v(v)
 {
     SG_ASSERT(-MAX_VALUE <= v && v <= MAX_VALUE);
 }
 
 inline SgValue::SgValue(SgBlackWhite goodForPlayer, int depth)
-    : m_value(MAX_VALUE - depth)
+    : m_v(MAX_VALUE - depth)
 {
     SG_ASSERT_BW(goodForPlayer);
     SG_ASSERT(0 <= depth && depth < MAX_DEPTH);
@@ -121,7 +121,7 @@ inline SgValue::SgValue(SgBlackWhite goodForPlayer, int depth)
 }
 
 inline SgValue::SgValue(SgBlackWhite goodForPlayer, int depth, int koLevel)
-    : m_value(MAX_VALUE - depth - koLevel * MAX_DEPTH)
+    : m_v(MAX_VALUE - depth - koLevel * MAX_DEPTH)
 {
     SG_ASSERT_BW(goodForPlayer);
     SG_ASSERT(0 <= depth && depth < MAX_DEPTH);
@@ -134,56 +134,56 @@ inline SgValue::SgValue(SgBlackWhite goodForPlayer, int depth, int koLevel)
 
 inline SgValue::operator int() const
 {
-    return m_value;
+    return m_v;
 }
 
 inline int SgValue::Depth() const
 {
     if (IsEstimate())
         return 0;
-    else return (MAX_DEPTH - 1) - (std::abs(m_value)-1) % MAX_DEPTH;
+    else return (MAX_DEPTH - 1) - (std::abs(m_v)-1) % MAX_DEPTH;
 }
 
 inline bool SgValue::IsEstimate() const
 {
-    return -MAX_ESTIMATE < m_value && m_value < MAX_ESTIMATE;
+    return -MAX_ESTIMATE < m_v && m_v < MAX_ESTIMATE;
 }
 
 inline bool SgValue::IsKoValue() const
 {
-    return IsSureValue() && -KO_VALUE < m_value && m_value < KO_VALUE;
+    return IsSureValue() && -KO_VALUE < m_v && m_v < KO_VALUE;
 }
 
 inline bool SgValue::IsPositive() const
 {
-    return 0 <= m_value;
+    return 0 <= m_v;
 }
 
 inline bool SgValue::IsSureValue() const
 {
-    return m_value <= -MAX_ESTIMATE || MAX_ESTIMATE <= m_value;
+    return m_v <= -MAX_ESTIMATE || MAX_ESTIMATE <= m_v;
 }
 
 inline void SgValue::SetValueForPlayer(SgBlackWhite player)
 {
     if (player == SG_WHITE)
-        m_value = -m_value;
+        m_v = -m_v;
 }
 
 inline int SgValue::ValueForBlack() const
 {
-    return +m_value;
+    return +m_v;
 }
 
 inline int SgValue::ValueForPlayer(SgBlackWhite player) const
 {
     SG_ASSERT_BW(player);
-    return player == SG_WHITE ? -m_value : +m_value;
+    return player == SG_WHITE ? -m_v : +m_v;
 }
 
 inline int SgValue::ValueForWhite() const
 {
-    return -m_value;
+    return -m_v;
 }
 
 //----------------------------------------------------------------------------
@@ -601,6 +601,11 @@ public:
 
     void SetMustReturnExactResult(bool flag);
 
+    /** Turn reduced delta for hash table moves off for fixed-depth
+        searches
+    */
+    void SetHalfDeltaForHashHit(bool flag = true);
+
     /** Get the current statistics.
         Can be called during search.
         Override for derived search and statistics.
@@ -769,6 +774,9 @@ private:
     /** How much less deep to search during null move pruning */
     int m_nullMoveDepth;
 
+    /** Search moves from hash table deeper */
+    bool m_halfDeltaForHashHit;
+
     /** True if search is in the process of being aborted. */
     bool m_aborted;
 
@@ -906,6 +914,11 @@ inline const SgSearchControl* SgSearch::SearchControl() const
 inline void SgSearch::SetAbortSearch(bool fAborted)
 {
     m_aborted = fAborted;
+}
+
+inline void SgSearch::SetHalfDeltaForHashHit(bool flag)
+{
+    m_halfDeltaForHashHit = flag;
 }
 
 inline void SgSearch::SetKillers(bool flag)

@@ -24,9 +24,6 @@ public:
 
     void InitializeMove(SgMove move, float& value, float& count);
 
-    void InitializeChildren(SgUctTree& tree, const SgUctNode& node,
-                            bool rave);
-
 private:
     const GoBoard& m_bd;
 
