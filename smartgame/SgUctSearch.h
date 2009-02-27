@@ -64,70 +64,32 @@
     - @ref sguctsearchweights
 */
 
-/** @page sguctsearchlockfree Lock-free mode in SgUctSearch
+/** @page sguctsearchlockfree Lock-free usage of SgUctSearch
+    SgUctSearch can be used in a lock-free way for improved multi-threaded
+    performance. Then, the threads access the common data structures (like
+    the tree) without any locking. Lock-free usage is enabled with
+    SgUctSearch::SetLockFree(true).
 
-The basic idea of the lock-free mode in SgUctSearch is to share a tree between
-multiple threads without using any locks. Because of specific requirements on
-the memory model of the hardware platform, lock-free mode is an optional
-feature of the SgUctSearch and needs to be enabled explicitly.
+    It depends on the memory model of the platform, if lock-free usage
+    works. It assumes that writes of some basic types (size_t, int, float,
+    pointers) are atomic and that the CPU does not reorder certain
+    instructions. In particular, SgUctNode::SetNuChildren() is always called
+    after the children were created, such that SgUctNode::HasChildren()
+    returns only true, if the children are ready to use. Because of the
+    platform-dependency, lock-free is not enabled by default.
+    Statistics collected during the search may not be accurate in
+    lock-free usage, because counts and mean values may be manipulated
+    concurrently.
 
-@section sguctsearchlockfreetree Modifying the Tree Structure
-
-The first change to make the lock-free search work is in the handling of
-concurrent changes to the structure of the tree. SgUctSearch never deletes
-nodes during a search; new nodes are created in a pre-allocated memory array.
-In the lock-free algorithm, each thread has its own memory array for creating
-new nodes. Only after the nodes are fully created and initialized, are they
-linked to the parent node. This can cause some memory overhead, because if
-several threads expand the same node only the children created by the last
-thread will be used in future simulations. It can also happen that some of the
-children that are lost already received value updates; these updates will be
-lost.
-
-The child information of a node consists of two variables: a pointer to the
-first child in the array, and the number of children. To avoid that another
-thread sees an inconsistent state of these variables, all threads assume that
-the number of children is valid if the pointer to the first child is not null.
-Linking a parent to a new set of children requires first writing the number of
-children, then the pointer to the first child. The compiler is prevented from
-reordering the writes by declaring these variables as volatile.
-
-@section sguctsearchlockfreevalues Updating Values
-
-The move and RAVE values are stored in the nodes as counts and mean values.
-The mean values are updated using an incremental algorithm. Updating them
-without protection by a mutex can cause updates of the mean to be lost with or
-without increment of the count, as well as updates of the mean occurring
-without increment of the count. It could also happen that one thread reads the
-count and mean while they are written by another thread, and the first thread
-sees an erroneous state that exists only temporarily. In practice, these
-faulty updates occur with a low probability and will have only a small effect
-on the counts and mean values. They are intentionally ignored.
-
-The only problematic case is if a count is zero, because the mean value is
-undefined if the count is zero, and this case has a special meaning at several
-places in the search. For example, the computation of the values for the
-selection of children in the in-tree phase distinguishes three cases: if the
-move count and RAVE count is non-zero, the value will be computed as a
-weighted linear combination of both mean values, if the move count is zero,
-only the RAVE mean is used, and if both counts are zero, a configurable
-constant value, the first play urgency, is used. To avoid this problem, all
-threads assume that a mean value is only valid if the corresponding count is
-non-zero. Updating a value requires first writing the new mean value, then the
-new count. The compiler is prevented from reordering the writes by declaring
-the counts and mean values as volatile.
-
-@section sguctsearchlockfreeplatform Platform Requirements
-
-There are some requirements on the memory model of the platform to make the
-lock-free search algorithm work. Writes of certain basic types (size_t, int,
-float, pointers) must be atomic. Writes by one thread must be seen by other
-threads in the same order. The IA-32 and Intel-64 CPU architectures, which are
-used in most modern standard computers, guarantee these assumptions. They also
-synchronize CPU caches after writes. (See
-<a href="http://download.intel.com/design/processor/manuals/253668.pdf">
-Intel 64 and IA-32 Architectures Software Developer's Manual</a>, chapter
-7.1 Locked Atomic Operations and 7.2 Memory Ordering).
+    In particular, the IA-32 and Intel-64 architecture guarantees these
+    assumptions. Writes of the used data types are atomic (if properly
+    aligned) and writes by one CPU are seen in the same order by other CPUs
+    (the critical data is declared as volatile to avoid that the compiler
+    reorders writes for optimization purposes). In addition, the architecture
+    synchronizes CPU caches after writes. See
+    <a href="http://download.intel.com/design/processor/manuals/253668.pdf">
+    Intel 64 and IA-32 Architectures Software Developer's Manual</a>, chapter
+    7.1 (Locked Atomic Operations) and 7.2 (Memory Ordering).
 */
 
 /** @page sguctsearchweights Estimator weights in SgUctSearch
@@ -222,6 +184,48 @@ struct SgUctGameInfo
 
 //----------------------------------------------------------------------------
 
+/** Provides an initialization of unknown states.
+    @ingroup sguctgroup
+*/
+class SgUctPriorKnowledge
+{
+public:
+    virtual ~SgUctPriorKnowledge();
+
+    /** Called in each position before any calls to InitializeMove().
+        @param[out] deepenTree Used for selective deepening of the tree.
+        Initialized with @c false by the caller. Set to @c true, if the
+        in-tree phase should continue for another move.
+    */
+    virtual void ProcessPosition(bool& deepenTree) = 0;
+
+    /** Initialize the value for a move in the current state.
+        @param move The move to initialize.
+        @param[out] value The initial value for the state.
+        @param[out] count The initial count for the state.
+    */
+    virtual void InitializeMove(SgMove move, float& value,
+                                float& count) = 0;
+};
+
+//----------------------------------------------------------------------------
+
+class SgUctThreadState;
+
+/** Create SgUctPriorKnowledge instances.
+    Needs one per thread.
+    @ingroup sguctgroup
+*/
+class SgUctPriorKnowledgeFactory
+{
+public:
+    virtual ~SgUctPriorKnowledgeFactory();
+
+    virtual SgUctPriorKnowledge* Create(SgUctThreadState& state) = 0;
+};
+
+//----------------------------------------------------------------------------
+
 /** Move selection strategy after search is finished.
     @ingroup sguctgroup
 */
@@ -283,12 +287,9 @@ public:
     /** Local variable for SgUctSearch::PlayInTree().
         Reused for efficiency.
     */
-    std::vector<SgMoveInfo> m_moves;
+    std::vector<SgMove> m_moves;
 
-    /** Local variable for SgUctSearch::CheckCountAbort().
-        Reused for efficiency.
-    */
-    std::vector<SgMove> m_excludeMoves;
+    std::auto_ptr<SgUctPriorKnowledge> m_priorKnowledge;
 
     SgUctThreadState(size_t threadId, int moveRange = 0);
 
@@ -321,7 +322,7 @@ public:
         Moves will be explored in the order of the returned list.
         @param[out] moves The generated moves or empty list at end of game
     */
-    virtual void GenerateAllMoves(std::vector<SgMoveInfo>& moves) = 0;
+    virtual void GenerateAllMoves(std::vector<SgMove>& moves) = 0;
 
     /** Generate random move.
         Generate a random move in the play-out phase (outside the UCT tree).
@@ -530,7 +531,7 @@ public:
         Sets up thread state 0 for a seach and calls GenerateAllMoves
         of the thread state.
     */
-    void GenerateAllMoves(std::vector<SgMoveInfo>& moves);
+    void GenerateAllMoves(std::vector<SgMove>& moves);
 
     /** Play a single game.
         Plays a single game using the thread state of the first thread.
@@ -747,6 +748,11 @@ public:
 
     /** See Rave() */
     void SetRave(bool enable);
+
+    /** Set initializer for unknown moves.
+        Takes ownership. Default is 0 (no initializer).
+    */
+    void SetPriorKnowledge(SgUctPriorKnowledgeFactory* factory);
 
     /** See SgUctMoveSelect */
     SgUctMoveSelect MoveSelect() const;
@@ -986,16 +992,18 @@ private:
     float m_raveWeightFinal;
 
     /** 1 / m_raveWeightInitial precomputed for efficiency */
-    double m_raveWeightParam1;
+    float m_raveWeightParam1;
 
     /** m_raveWeightInitial / m_raveWeightFinal precomputed for efficiency */
-    double m_raveWeightParam2;
+    float m_raveWeightParam2;
 
     /** Time limit for current search. */
     double m_maxTime;
 
     /** See VirtualLoss() */
     bool m_virtualLoss;
+
+    std::auto_ptr<SgUctPriorKnowledgeFactory> m_priorKnowledgeFactory;
 
     std::string m_logFileName;
 
@@ -1030,20 +1038,23 @@ private:
     SgFastLog m_fastLog;
 #endif
 
-    void ApplyRootFilter(std::vector<SgMoveInfo>& moves);
+    void ApplyRootFilter(std::vector<SgMove>& moves);
 
-    bool CheckAbortSearch(SgUctThreadState& state);
+    bool CheckAbortSearch(const SgUctThreadState& state);
 
     bool CheckEarlyAbort() const;
 
-    bool CheckCountAbort(SgUctThreadState& state,
-                         std::size_t remainingGames) const;
+    bool CheckCountAbort(std::size_t remainingGames) const;
 
     void Debug(const SgUctThreadState& state, const std::string& textLine);
 
     void DeleteThreads();
 
-    void ExpandNode(SgUctThreadState& state, const SgUctNode& node);
+    void ExpandNode(SgUctThreadState& state, const SgUctNode& node,
+                    bool& deepenTree);
+
+    void InitPriorKnowledge(SgUctThreadState& state, const SgUctNode& node,
+                            bool& deepenTree);
 
     float GetBound(float logPosCount, const SgUctNode& child) const;
 

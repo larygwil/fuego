@@ -1059,7 +1059,6 @@ void GoGtpEngine::CmdSetFreeHandicap(GtpCommand& cmd)
 /** Set game info property in root node of internal SGF tree.
     Arguments: info value (value is remaining line after gameinfo) <br>
     Supported infos:
-    - game_name
     - player_black
     - player_white
     - result
@@ -1069,9 +1068,7 @@ void GoGtpEngine::CmdSetInfo(GtpCommand& cmd)
     string key = cmd.Arg(0);
     string value = cmd.RemainingLine(0);
     SgNode& root = GetGame().Root();
-    if (key == "game_name")
-        root.SetStringProp(SG_PROP_GAME_NAME, value);
-    else if (key == "player_black")
+    if (key == "player_black")
         AddPlayerProp(SG_BLACK, value, true);
     else if (key == "player_white")
         AddPlayerProp(SG_WHITE, value, true);

@@ -12,7 +12,6 @@
 #include "GoEyeUtil.h"
 #include "GoRegionBoard.h"
 #include "GoSafetySolver.h"
-#include "GoUctDefaultPriorKnowledge.h"
 #include "GoUctSearch.h"
 #include "GoUctUtil.h"
 
@@ -124,14 +123,12 @@ public:
         construction; but then a policy has to be set with SetPolicy(), before
         the search is used.
         @param param Parameters. Stores a reference to the argument.
-        @param policy_param. Stores a reference to the argument.
         @param safe Safety information. Stores a reference to the argument.
         @param allSafe Safety information. Stores a reference to the argument.
     */
     GoUctGlobalSearchState(std::size_t threadId, const GoBoard& bd,
                            POLICY* policy,
                            const GoUctGlobalSearchStateParam& param,
-                           const GoUctPlayoutPolicyParam& policyParam,
                            const SgBWSet& safe,
                            const SgPointArray<bool>& allSafe);
 
@@ -139,7 +136,7 @@ public:
 
     float Evaluate();
 
-    void GenerateAllMoves(std::vector<SgMoveInfo>& moves);
+    void GenerateAllMoves(std::vector<SgMove>& moves);
 
     SgMove GeneratePlayoutMove(bool& skipRaveUpdate);
 
@@ -166,8 +163,6 @@ public:
 
 private:
     const GoUctGlobalSearchStateParam& m_param;
-
-    const GoUctPlayoutPolicyParam& m_policyParam;
 
     /** See SetMercyRule() */
     bool m_mercyRuleTriggered;
@@ -199,8 +194,6 @@ private:
 
     SgRandom m_random;
 
-    GoUctDefaultPriorKnowledge m_priorKnowledge;
-
     boost::scoped_ptr<POLICY> m_policy;
 
     /** Not implemented */
@@ -214,9 +207,6 @@ private:
     template<class BOARD>
     float EvaluateBoard(const BOARD& bd, float komi);
 
-    /** Generates all legal moves with no knowledge values. */
-    void GenerateLegalMoves(std::vector<SgMoveInfo>& moves);
-
     float GetKomi() const;
 };
 
@@ -224,14 +214,11 @@ template<class POLICY>
 GoUctGlobalSearchState<POLICY>::GoUctGlobalSearchState(std::size_t threadId,
          const GoBoard& bd, POLICY* policy,
          const GoUctGlobalSearchStateParam& param,
-         const GoUctPlayoutPolicyParam& policyParam,
          const SgBWSet& safe, const SgPointArray<bool>& allSafe)
     : GoUctState(threadId, bd),
       m_safe(safe),
       m_allSafe(allSafe),
       m_param(param),
-      m_policyParam(policyParam),
-      m_priorKnowledge(Board(), m_policyParam),
       m_policy(policy)
 {
     ClearTerritoryStatistics();
@@ -362,10 +349,10 @@ void GoUctGlobalSearchState<POLICY>::GameStart()
 }
 
 template<class POLICY>
-void GoUctGlobalSearchState<POLICY>::GenerateLegalMoves(
-                                            std::vector<SgMoveInfo>& moves)
+void GoUctGlobalSearchState<POLICY>::GenerateAllMoves(
+                                                   std::vector<SgMove>& moves)
 {
-    //SG_ASSERT(! IsInPlayout());
+    SG_ASSERT(! IsInPlayout());
     const GoBoard& bd = Board();
     SG_ASSERT(! bd.Rules().AllowSuicide());
 
@@ -391,9 +378,8 @@ void GoUctGlobalSearchState<POLICY>::GenerateLegalMoves(
             && ! GoEyeUtil::IsSimpleEye(bd, p, toPlay)
             && ! m_allSafe[p]
             && bd.IsLegal(p, toPlay))
-            moves.push_back(SgMoveInfo(p));
+            moves.push_back(p);
     }
-
     // Full randomization is too expensive and in most cases not necessary,
     // if prior knowledge is available for initialization or RAVE values are
     // available after playing the first move. However we put a random move
@@ -401,17 +387,7 @@ void GoUctGlobalSearchState<POLICY>::GenerateLegalMoves(
     // a bad corner move
     if (moves.size() > 1)
         std::swap(moves[0], moves[m_random.Int(moves.size())]);
-    moves.push_back(SgMoveInfo(SG_PASS));
-}
-
-template<class POLICY>
-void GoUctGlobalSearchState<POLICY>::GenerateAllMoves(
-                                               std::vector<SgMoveInfo>& moves)
-{
-    moves.clear();  // NEEDED?
-    GenerateLegalMoves(moves);
-    if (!moves.empty())
-        m_priorKnowledge.ProcessPosition(moves);
+    moves.push_back(SG_PASS);
 }
 
 template<class POLICY>
@@ -529,7 +505,6 @@ public:
     */
     GoUctGlobalSearchStateFactory(GoBoard& bd,
                                   FACTORY& playoutPolicyFactory,
-                                  const GoUctPlayoutPolicyParam& policyParam,
                                   const SgBWSet& safe,
                                   const SgPointArray<bool>& allSafe);
 
@@ -540,8 +515,6 @@ private:
 
     FACTORY& m_playoutPolicyFactory;
 
-    const GoUctPlayoutPolicyParam& m_policyParam;
-
     const SgBWSet& m_safe;
 
     const SgPointArray<bool>& m_allSafe;
@@ -551,12 +524,10 @@ template<class POLICY, class FACTORY>
 GoUctGlobalSearchStateFactory<POLICY,FACTORY>
 ::GoUctGlobalSearchStateFactory(GoBoard& bd,
                   FACTORY& playoutPolicyFactory,
-                  const GoUctPlayoutPolicyParam& policyParam,
                   const SgBWSet& safe,
                   const SgPointArray<bool>& allSafe)
     : m_bd(bd),
       m_playoutPolicyFactory(playoutPolicyFactory),
-      m_policyParam(policyParam),
       m_safe(safe),
       m_allSafe(allSafe)
 {
@@ -583,8 +554,7 @@ public:
         these functions using its own safety information.
     */
     GoUctGlobalSearch(GoBoard& bd,
-                      FACTORY* playoutPolicyFactory,
-                      const GoUctPlayoutPolicyParam& policyParam);
+                      FACTORY* playoutPolicyFactory);
 
     /** @name Pure virtual functions of SgUctSearch */
     // @{
@@ -635,8 +605,7 @@ private:
 
 template<class POLICY, class FACTORY>
 GoUctGlobalSearch<POLICY,FACTORY>::GoUctGlobalSearch(GoBoard& bd,
-                                                     FACTORY* playoutFactory,
-                                  const GoUctPlayoutPolicyParam& policyParam)
+                                                     FACTORY* playoutFactory)
     : GoUctSearch(bd, 0),
       m_playoutPolicyFactory(playoutFactory),
       m_regions(bd),
@@ -645,7 +614,6 @@ GoUctGlobalSearch<POLICY,FACTORY>::GoUctGlobalSearch(GoBoard& bd,
     SgUctThreadStateFactory* stateFactory =
         new GoUctGlobalSearchStateFactory<POLICY,FACTORY>(bd,
                                                           *playoutFactory,
-                                                          policyParam,
                                                           m_safe, m_allSafe);
     SetThreadStateFactory(stateFactory);
     SetDefaultParameters(bd.Size());
@@ -751,9 +719,7 @@ SgUctThreadState* GoUctGlobalSearchStateFactory<POLICY,FACTORY>::Create(
         dynamic_cast<const GoUctGlobalSearch<POLICY,FACTORY>&>(search);
     GoUctGlobalSearchState<POLICY>* state =
         new GoUctGlobalSearchState<POLICY>(threadId, globalSearch.Board(), 0,
-                                   globalSearch.m_param, 
-                                           m_policyParam,
-                                           m_safe, m_allSafe);
+                                   globalSearch.m_param, m_safe, m_allSafe);
     POLICY* policy = m_playoutPolicyFactory.Create(state->UctBoard());
     state->SetPolicy(policy);
     return state;

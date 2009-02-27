@@ -22,6 +22,7 @@
 #include "SgSList.h"
 #include "SgTime.h"
 #include "SgTimer.h"
+#include "SgUctPriorKnowledgeEven.h"
 #include "SgUctTreeUtil.h"
 #include "SgWrite.h"
 
@@ -64,17 +65,17 @@ GoUctPlayer::GoUctPlayer(GoBoard& bd)
       m_reuseSubtree(false),
       m_earlyPass(true),
       m_lastBoardSize(-1),
+      m_priorKnowledge(GOUCT_PRIORKNOWLEDGE_DEFAULT),
       m_maxGames(999999999),
-      m_resignMinGames(5000),
+      m_resignMinGames(3000),
       m_search(Board(),
                new GoUctPlayoutPolicyFactory<GoUctBoard>(
-                                                 m_playoutPolicyParam),
-               m_playoutPolicyParam),
-      
+                                                      m_playoutPolicyParam)),
       m_timeControl(Board()),
       m_rootFilter(new GoUctDefaultRootFilter(Board()))
 {
     SetDefaultParameters(Board().Size());
+    SetPriorKnowledge(m_priorKnowledge);
 }
 
 GoUctPlayer::~GoUctPlayer()
@@ -99,23 +100,13 @@ bool GoUctPlayer::DoEarlyPassSearch(size_t maxGames, double maxTime,
     SgDebug() << "GoUctPlayer: doing a search if early pass is possible\n";
     GoBoard& bd = Board();
     bd.Play(SG_PASS);
-    bool winAfterPass = false;
-    if (GoBoardUtil::PassWins(bd, bd.ToPlay()))
-        // Using GoBoardUtil::PassWins here is not strictly necessary, but
-        // safer, because it can take the search in the else-statement a while
-        // to explore the pass move
-        winAfterPass = false;
-    else
-    {
-        SgRestorer<bool> restorer(&m_search.m_param.m_territoryStatistics);
-        m_search.m_param.m_territoryStatistics = true;
-        vector<SgPoint> sequence;
-        double value = m_search.Search(maxGames, maxTime, sequence);
-        value = m_search.InverseEval(value);
-        winAfterPass = (value > 1 - m_resignThreshold);
-    }
+    SgRestorer<bool> restorer(&m_search.m_param.m_territoryStatistics);
+    m_search.m_param.m_territoryStatistics = true;
+    vector<SgPoint> sequence;
+    double value = m_search.Search(maxGames, maxTime, sequence);
+    value = m_search.InverseEval(value);
     bd.Undo();
-    if (! winAfterPass)
+    if (value < 1 - m_resignThreshold)
     {
         SgDebug() << "GoUctPlayer: no early pass possible (no win)\n";
         return false;
@@ -462,6 +453,28 @@ void GoUctPlayer::SetDefaultParameters(int boardSize)
         // length modification on large board
         m_resignThreshold = 0.08;
     }
+}
+
+void GoUctPlayer::SetPriorKnowledge(GoUctGlobalSearchPrior prior)
+{
+    SgUctPriorKnowledgeFactory* factory;
+    switch (prior)
+    {
+    case GOUCT_PRIORKNOWLEDGE_NONE:
+        factory = 0;
+        break;
+    case GOUCT_PRIORKNOWLEDGE_EVEN:
+        factory = new SgUctPriorKnowledgeEvenFactory(30);
+        break;
+    case GOUCT_PRIORKNOWLEDGE_DEFAULT:
+        factory = new GoUctDefaultPriorKnowledgeFactory(m_playoutPolicyParam);
+        break;
+    default:
+        SG_ASSERT(false);
+        factory = 0;
+    }
+    m_search.SetPriorKnowledge(factory);
+    m_priorKnowledge = prior;
 }
 
 void GoUctPlayer::SetReuseSubtree(bool enable)

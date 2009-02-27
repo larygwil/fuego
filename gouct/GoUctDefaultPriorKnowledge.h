@@ -14,21 +14,24 @@
     Mainly uses GoUctPlayoutPolicy to generate prior knowledge.
 */
 class GoUctDefaultPriorKnowledge
+    : public SgUctPriorKnowledge
 {
 public:
     GoUctDefaultPriorKnowledge(const GoBoard& bd,
                                const GoUctPlayoutPolicyParam& param);
 
-    void ProcessPosition(std::vector<SgMoveInfo>& moves);
+    void ProcessPosition(bool& deepenTree);
+
+    void InitializeMove(SgMove move, float& value, float& count);
 
 private:
     const GoBoard& m_bd;
 
     GoUctPlayoutPolicy<GoBoard> m_policy;
 
-    SgArray<SgStatisticsBase<float,std::size_t>,SG_PASS+1> m_values;
+    SgArray<SgStatisticsBase<float,float>,SG_PASS+1> m_values;
 
-    void Add(SgPoint p, float value, std::size_t count);
+    void Add(SgPoint p, float value, float count);
 
     void AddLocalityBonus(GoPointList& emptyPoints, bool isSmallBoard);
 
@@ -36,7 +39,22 @@ private:
                                         SgPointSet& atari,
                                         GoPointList& empty) const;
 
-    void Initialize(SgPoint p, float value, std::size_t count);
+    void Initialize(SgPoint p, float value, float count);
+};
+
+//----------------------------------------------------------------------------
+
+class GoUctDefaultPriorKnowledgeFactory
+    : public SgUctPriorKnowledgeFactory
+{
+public:
+    /** Stores a reference to param */
+    GoUctDefaultPriorKnowledgeFactory(const GoUctPlayoutPolicyParam& param);
+
+    SgUctPriorKnowledge* Create(SgUctThreadState& state);
+
+private:
+    const GoUctPlayoutPolicyParam& m_param;
 };
 
 //----------------------------------------------------------------------------

@@ -96,21 +96,21 @@ public:
     std::string ToString(int unitPerPoint = 1) const;
 
 private:
-    int m_value;
+    int m_v;
 };
 
 inline SgValue::SgValue()
-    : m_value(0)
+    : m_v(0)
 { }
 
 inline SgValue::SgValue(int v)
-    : m_value(v)
+    : m_v(v)
 {
     SG_ASSERT(-MAX_VALUE <= v && v <= MAX_VALUE);
 }
 
 inline SgValue::SgValue(SgBlackWhite goodForPlayer, int depth)
-    : m_value(MAX_VALUE - depth)
+    : m_v(MAX_VALUE - depth)
 {
     SG_ASSERT_BW(goodForPlayer);
     SG_ASSERT(0 <= depth && depth < MAX_DEPTH);
@@ -121,7 +121,7 @@ inline SgValue::SgValue(SgBlackWhite goodForPlayer, int depth)
 }
 
 inline SgValue::SgValue(SgBlackWhite goodForPlayer, int depth, int koLevel)
-    : m_value(MAX_VALUE - depth - koLevel * MAX_DEPTH)
+    : m_v(MAX_VALUE - depth - koLevel * MAX_DEPTH)
 {
     SG_ASSERT_BW(goodForPlayer);
     SG_ASSERT(0 <= depth && depth < MAX_DEPTH);
@@ -134,56 +134,56 @@ inline SgValue::SgValue(SgBlackWhite goodForPlayer, int depth, int koLevel)
 
 inline SgValue::operator int() const
 {
-    return m_value;
+    return m_v;
 }
 
 inline int SgValue::Depth() const
 {
     if (IsEstimate())
         return 0;
-    else return (MAX_DEPTH - 1) - (std::abs(m_value)-1) % MAX_DEPTH;
+    else return (MAX_DEPTH - 1) - (std::abs(m_v)-1) % MAX_DEPTH;
 }
 
 inline bool SgValue::IsEstimate() const
 {
-    return -MAX_ESTIMATE < m_value && m_value < MAX_ESTIMATE;
+    return -MAX_ESTIMATE < m_v && m_v < MAX_ESTIMATE;
 }
 
 inline bool SgValue::IsKoValue() const
 {
-    return IsSureValue() && -KO_VALUE < m_value && m_value < KO_VALUE;
+    return IsSureValue() && -KO_VALUE < m_v && m_v < KO_VALUE;
 }
 
 inline bool SgValue::IsPositive() const
 {
-    return 0 <= m_value;
+    return 0 <= m_v;
 }
 
 inline bool SgValue::IsSureValue() const
 {
-    return m_value <= -MAX_ESTIMATE || MAX_ESTIMATE <= m_value;
+    return m_v <= -MAX_ESTIMATE || MAX_ESTIMATE <= m_v;
 }
 
 inline void SgValue::SetValueForPlayer(SgBlackWhite player)
 {
     if (player == SG_WHITE)
-        m_value = -m_value;
+        m_v = -m_v;
 }
 
 inline int SgValue::ValueForBlack() const
 {
-    return +m_value;
+    return +m_v;
 }
 
 inline int SgValue::ValueForPlayer(SgBlackWhite player) const
 {
     SG_ASSERT_BW(player);
-    return player == SG_WHITE ? -m_value : +m_value;
+    return player == SG_WHITE ? -m_v : +m_v;
 }
 
 inline int SgValue::ValueForWhite() const
 {
-    return -m_value;
+    return -m_v;
 }
 
 //----------------------------------------------------------------------------
@@ -599,6 +599,13 @@ public:
 
     void SetNullMoveDepth(int depth);
 
+    void SetMustReturnExactResult(bool flag);
+
+    /** Turn reduced delta for hash table moves off for fixed-depth
+        searches
+    */
+    void SetHalfDeltaForHashHit(bool flag = true);
+
     /** Get the current statistics.
         Can be called during search.
         Override for derived search and statistics.
@@ -687,6 +694,10 @@ public:
     */
     int CurrentDepth() const;
 
+    /** The value of the previous level of search,
+        during iterative deepening. */
+    int PrevValue(SgList<SgMove>* sequence) const;
+
     /** Indicates which move in the movelist at the previous level was
         executed.
         This may be necessary if the value or moves at a
@@ -700,32 +711,28 @@ public:
     */
     SgMove PrevMove2() const;
 
-    /** Is the game over? */
     virtual bool EndOfGame() const = 0;
 
     /** Initialize PrevMove, CurrentDepth and other variables so that they can
-        be accessed when move generation/evaluation are called directly,
+        be accessed when move generation/evaluation called directly,
         not as part of a search.
     */
     void InitSearch(int startDepth = 0);
 
     void UpdateTime();
 
-    /** Current node in tracing; set to 0 if not tracing */
+    /** 0 if not tracing */
     SgNode* m_traceNode;
 
-    /** Add comment to current tracenode */
     void TraceComment(const char* comment) const;
-    
-    /** Add value as a comment to current tracenode */
+
     void TraceValue(int value) const;
 
-    /** Add value and text as a comment to current tracenode */
     void TraceValue(int value, const char* comment, bool isExact) const;
 
     /** Add the given move as a new node to the trace tree and go to that
         node.
-        Don't do anything if m_traceNode is 0. To be called from the
+        Don't do anything if m_traceNode is null. To be called from the
         client's Execute method.
     */
     void AddTraceNode(SgMove move, SgBlackWhite player);
@@ -736,13 +743,10 @@ public:
     */
     void TakeBackTraceNode();
 
-    /** Is tracing currently active?*/
     virtual bool TraceIsOn() const;
 
-    /** Creates a new root node for tracing */
     void InitTracing(const std::string& type);
 
-    /** Move trace tree to a subtree of toNode, and set m_traceNode = 0 */
     void AppendTrace(SgNode* toNode);
 
     void SetAbortFrequency(int value);
@@ -770,6 +774,9 @@ private:
     /** How much less deep to search during null move pruning */
     int m_nullMoveDepth;
 
+    /** Search moves from hash table deeper */
+    bool m_halfDeltaForHashHit;
+
     /** True if search is in the process of being aborted. */
     bool m_aborted;
 
@@ -779,16 +786,16 @@ private:
     /** Keeps track of whether the depth limit was reached. */
     bool m_reachedDepthLimit;
 
+    bool m_mustReturnExactResult;
+
     SgSearchStatistics m_stat;
 
     SgTimer m_timer;
 
     int m_timerLevel;
 
-    /** The search result from the previous iteration */
     int m_prevValue;
 
-    /** The PV from the previous search iteration */
     SgList<SgMove> m_prevSequence;
 
     static const int MAX_KILLER_DEPTH = 10;
@@ -806,7 +813,6 @@ private:
     int DFS(int startDepth, int depthLimit, int boundLo, int boundHi,
             SgList<SgMove>* sequence, bool* isExactValue);
 
-    /** Try to find current position in m_hash */
     bool LookupHash(SgSearchHashData& data) const;
 
     void MoveKillersToFront(SgList<SgMove>& moves);
@@ -820,24 +826,19 @@ private:
 
     bool NullMovePrune(int depth, int delta, int beta);
 
-    /** Store current position in hash table */
     void StoreHash(int depth, int value, SgMove move, bool isUpperBound,
                    bool isLowerBound, bool isExact);
 
     /** Seed the hash table with the given sequence. */
     void AddSequenceToHash(const SgList<SgMove>& sequence, int depth);
 
-    /** Evaluate current position; possibly write debug output */
-    int CallEvaluate(int depth, int alpha, int beta,
-                     SgList<SgMove>* sequence, bool* isExact);
+    int  CallEvaluate(int depth, int alpha, int beta,
+                      SgList<SgMove>* sequence, bool* isExact);
 
-    /** Execute move; update m_moveStack, m_currentDepth and statistics */
     bool CallExecute(SgMove move, int* delta, int depth);
 
-    /** Generate moves; possibly write debug output */
     void CallGenerate(SgList<SgMove>* moves, int depth);
 
-    /** Take back move; update m_moveStack and m_currentDepth */
     void CallTakeBack();
 
     /** Not implemented */
@@ -888,6 +889,13 @@ inline int SgSearch::IteratedSearch(int depthMin, int depthMax,
                           sequence, clearHash, traceNode);
 }
 
+inline int SgSearch::PrevValue(SgList<SgMove>* sequence) const
+{
+    if (sequence)
+        *sequence = m_prevSequence;
+    return m_prevValue;
+}
+
 inline SgMove SgSearch::PrevMove() const
 {
     return m_moveStack[1];
@@ -908,6 +916,11 @@ inline void SgSearch::SetAbortSearch(bool fAborted)
     m_aborted = fAborted;
 }
 
+inline void SgSearch::SetHalfDeltaForHashHit(bool flag)
+{
+    m_halfDeltaForHashHit = flag;
+}
+
 inline void SgSearch::SetKillers(bool flag)
 {
     m_useKillers = flag;
@@ -926,6 +939,11 @@ inline void SgSearch::SetNullMove(bool flag)
 inline void SgSearch::SetNullMoveDepth(int depth)
 {
     m_nullMoveDepth = depth;
+}
+
+inline void SgSearch::SetMustReturnExactResult(bool flag)
+{
+    m_mustReturnExactResult = flag;
 }
 
 inline void SgSearch::SetScout(bool flag)

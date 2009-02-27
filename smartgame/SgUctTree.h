@@ -23,65 +23,6 @@ typedef SgStatisticsBase<volatile float,volatile std::size_t>
 
 //----------------------------------------------------------------------------
 
-/** Used for node creation. */
-struct SgMoveInfo
-{
-    /** Move for the child. */
-    SgMove m_move;
-
-    /** Value of node after node is created. Value is from child's
-        perspective, so the value stored here must be the inverse of
-        the evaluation from the parent's perspective. */
-    float m_value;
-
-    /** Count of node after node is created. */
-    std::size_t m_count;
-
-    /** Rave value of move after node is created from viewpoint of
-        parent node. Value should not be inverted to child's
-        perspective. */
-    float m_raveValue;
-
-    /** Rave count of move after node is created. */
-    float m_raveCount;
-
-    SgMoveInfo();
-
-    SgMoveInfo(SgMove move);
-
-    SgMoveInfo(SgMove move, float value, std::size_t count,
-               float raveValue, float raveCount);
-};
-
-inline SgMoveInfo::SgMoveInfo()
-    : m_value(0.0),
-      m_count(0),
-      m_raveValue(0.0),
-      m_raveCount(0.0)
-{
-}
-
-inline SgMoveInfo::SgMoveInfo(SgMove move)
-    : m_move(move),
-      m_value(0.0),
-      m_count(0),
-      m_raveValue(0.0),
-      m_raveCount(0.0)
-{
-}
-
-inline SgMoveInfo::SgMoveInfo(SgMove move, float value, std::size_t count,
-                              float raveValue, float raveCount)
-    : m_move(move),
-      m_value(value),
-      m_count(count),
-      m_raveValue(raveValue),
-      m_raveCount(raveCount)
-{
-}
-
-//----------------------------------------------------------------------------
-
 /** Node used in SgUctTree.
     All data members are declared as volatile to avoid that the compiler
     re-orders writes, which can break assumptions made by SgUctSearch in
@@ -94,15 +35,14 @@ inline SgMoveInfo::SgMoveInfo(SgMove move, float value, std::size_t count,
 class SgUctNode
 {
 public:
-    /** Initializes node with given move, value and count. */
-    SgUctNode(const SgMoveInfo& info);
+    SgUctNode(SgMove move);
 
     /** Add game result.
         @param eval The game result (e.g. score or 0/1 for win loss)
     */
     void AddGameResult(float eval);
 
-    /** Removes a game result.
+    /** Removes a game result. 
         @param eval The game result (e.g. score or 0/1 for win loss)
     */
     void RemoveGameResult(float eval);
@@ -112,13 +52,13 @@ public:
         It can be different from MoveCount() of this position, if prior
         knowledge initialization of the children is used.
     */
-    std::size_t PosCount() const;
+    float PosCount() const;
 
     /** Number of times the move leading to this position was chosen.
         This count will be different from PosCount(), if prior knowledge
         initialization is used.
     */
-    std::size_t MoveCount() const;
+    float MoveCount() const;
 
     /** Get first child.
         @note This information is an implementation detail of how SgUctTree
@@ -159,10 +99,10 @@ public:
     */
     void DecPosCount();
 
-    void SetPosCount(std::size_t value);
+    void SetPosCount(float value);
 
     /** Initialize value with prior knowledge. */
-    void InitializeValue(float value, std::size_t count);
+    void InitializeValue(float value, float count);
 
     /** Copy data from other node.
         Copies all data, apart from the children information (first child
@@ -200,7 +140,7 @@ public:
     void InitializeRaveValue(float value, float count);
 
 private:
-    SgStatisticsBase<volatile float,volatile std::size_t> m_statistics;
+    SgStatisticsBase<volatile float,volatile float> m_statistics;
 
     const SgUctNode* volatile m_firstChild;
 
@@ -209,20 +149,17 @@ private:
     volatile SgMove m_move;
 
     /** RAVE statistics.
-        Uses double for count to allow adding fractional values if RAVE
-        updates are weighted.
+        Uses floating point type for count to allow adding weighted values.
     */
     SgStatisticsBase<volatile float,volatile float> m_raveValue;
 
-    volatile std::size_t m_posCount;
+    volatile float m_posCount;
 };
 
-inline SgUctNode::SgUctNode(const SgMoveInfo& info)
-    : m_statistics(info.m_value, info.m_count),
-      m_nuChildren(0),
-      m_move(info.m_move),
-      m_raveValue(info.m_raveValue, info.m_raveCount),
-      m_posCount(0)
+inline SgUctNode::SgUctNode(SgMove move)
+    : m_nuChildren(0),
+      m_move(move),
+      m_posCount(0.)
 {
     // m_firstChild is not initialized, only defined if m_nuChildren > 0
 }
@@ -286,7 +223,7 @@ inline void SgUctNode::DecPosCount()
     --m_posCount;
 }
 
-inline void SgUctNode::InitializeValue(float value, std::size_t count)
+inline void SgUctNode::InitializeValue(float value, float count)
 {
     m_statistics.Initialize(value, count);
 }
@@ -307,7 +244,7 @@ inline SgMove SgUctNode::Move() const
     return m_move;
 }
 
-inline std::size_t SgUctNode::MoveCount() const
+inline float SgUctNode::MoveCount() const
 {
     return m_statistics.Count();
 }
@@ -317,7 +254,7 @@ inline int SgUctNode::NuChildren() const
     return m_nuChildren;
 }
 
-inline std::size_t SgUctNode::PosCount() const
+inline float SgUctNode::PosCount() const
 {
     return m_posCount;
 }
@@ -343,7 +280,7 @@ inline void SgUctNode::SetNuChildren(int nuChildren)
     m_nuChildren = nuChildren;
 }
 
-inline void SgUctNode::SetPosCount(std::size_t value)
+inline void SgUctNode::SetPosCount(float value)
 {
     m_posCount = value;
 }
@@ -396,11 +333,11 @@ public:
     SgUctNode* CreateOne(SgMove move);
 
     /** Create a number of new nodes with a given list of moves at the end of
-        the storage. Returns the sum of counts of moves.
+        the storage.
         REQUIRES: HasCapacity(moves.size())
         @param moves The list of moves.
     */
-    std::size_t Create(const std::vector<SgMoveInfo>& moves);
+    void Create(const std::vector<SgMove>& moves);
 
     /** Create a number of new nodes at the end of the storage.
         REQUIRES: HasCapacity(n)
@@ -446,18 +383,12 @@ inline SgUctNode* SgUctAllocator::CreateOne(SgMove move)
     return (m_finish++);
 }
 
-inline std::size_t SgUctAllocator::Create(
-                                         const std::vector<SgMoveInfo>& moves)
+inline void SgUctAllocator::Create(const std::vector<SgMove>& moves)
 {
     SG_ASSERT(HasCapacity(moves.size()));
-    std::size_t count = 0;
-    for (std::vector<SgMoveInfo>::const_iterator it = moves.begin();
+    for (std::vector<SgMove>::const_iterator it = moves.begin();
          it != moves.end(); ++it, ++m_finish)
-    {
         new(m_finish) SgUctNode(*it);
-        count += it->m_count;
-    }
-    return count;
 }
 
 inline void SgUctAllocator::CreateN(std::size_t n)
@@ -576,7 +507,7 @@ public:
         Requires: Allocator(allocatorId).HasCapacity(moves.size())
     */
     void CreateChildren(std::size_t allocatorId, const SgUctNode& node,
-                        const std::vector<SgMoveInfo>& moves);
+                        const std::vector<SgMove>& moves);
 
     /** Extract subtree to a different tree.
         The tree will be truncated if one of the allocators overflows (can
@@ -637,10 +568,9 @@ public:
     void RemoveRaveValue(const SgUctNode& node, float value, float weight);
 
     /** Initialize the value and count of a node. */
-    void InitializeValue(const SgUctNode& node, float value,
-                         std::size_t count);
+    void InitializeValue(const SgUctNode& node, float value, float count);
 
-    void SetPosCount(const SgUctNode& node, std::size_t posCount);
+    void SetPosCount(const SgUctNode& node, float posCount);
 
     /** Initialize the rave value and count of a move node with prior
         knowledge.
@@ -719,7 +649,7 @@ inline void SgUctTree::AddGameResult(const SgUctNode& node,
 
 inline void SgUctTree::CreateChildren(std::size_t allocatorId,
                                       const SgUctNode& node,
-                                      const std::vector<SgMoveInfo>& moves)
+                                      const std::vector<SgMove>& moves)
 {
     SG_ASSERT(Contains(node));
     // Parameters are const-references, because only the tree is allowed
@@ -736,12 +666,10 @@ inline void SgUctTree::CreateChildren(std::size_t allocatorId,
     SG_ASSERT(NuAllocators() > 1 || ! node.HasChildren());
 
     const SgUctNode* firstChild = allocator.Finish();
-    
-    std::size_t parentCount = allocator.Create(moves);
+    allocator.Create(moves);
 
     // Write order dependency: SgUctSearch in lock-free mode assumes that
     // m_firstChild is valid if m_nuChildren is greater zero
-    nonConstNode.SetPosCount(parentCount);
     nonConstNode.SetFirstChild(firstChild);
     nonConstNode.SetNuChildren(nuChildren);
 }
@@ -795,7 +723,7 @@ inline bool SgUctTree::HasCapacity(std::size_t allocatorId,
 }
 
 inline void SgUctTree::InitializeValue(const SgUctNode& node,
-                                       float value, std::size_t count)
+                                       float value, float count)
 {
     SG_ASSERT(Contains(node));
     // Parameter is const-reference, because only the tree is allowed
@@ -832,8 +760,7 @@ inline const SgUctNode& SgUctTree::Root() const
     return m_root;
 }
 
-inline void SgUctTree::SetPosCount(const SgUctNode& node,
-                                   std::size_t posCount)
+inline void SgUctTree::SetPosCount(const SgUctNode& node, float posCount)
 {
     SG_ASSERT(Contains(node));
     // Parameters are const-references, because only the tree is allowed

@@ -7,10 +7,9 @@
 #include "GoUctPlayoutPolicy.h"
 
 #include <algorithm>
-#include <boost/io/ios_state.hpp>
+#include "SgStreamFmtRestorer.h"
 
 using namespace std;
-using boost::io::ios_all_saver;
 
 //----------------------------------------------------------------------------
 
@@ -67,7 +66,7 @@ void GoUctPlayoutPolicyStat::Clear()
 
 void GoUctPlayoutPolicyStat::Write(std::ostream& out) const
 {
-    ios_all_saver saver(out);
+    SgStreamFmtRestorer restorer(out);
     out << fixed << setprecision(2)
         << SgWriteLabel("NuMoves") << m_nuMoves << '\n';
     for (int i = 0; i < _GOUCT_NU_DEFAULT_PLAYOUT_TYPE; ++i)

@@ -1,29 +1,31 @@
 /** @page generalmodules Module Dependencies
 
+    Libraries are shown in black boxes, applications in blue boxes.
+
     @dot
     digraph modules
     {
         node [shape=box]
 
-        gtp [label="GtpEngine"]
+        gtp [label="GtpEngine", color=black]
 
-        sg [label="SmartGame"]
+        sg [label="SmartGame", color=black]
         gtp -> sg
 
-        go [label="Go"]
+        go [label="Go", color=black]
         sg -> go
 
-        sp [label="SimplePlayers"]
+        sp [label="SimplePlayers", color=black]
         go -> sp
 
-        gouct [label="GoUct"]
+        gouct [label="GoUct", color=black]
         go -> gouct
 
-        fuegotest [label="FuegoTest", style=bold]
+        fuegotest [label="FuegoTest", color=blue]
         gouct -> fuegotest
         sp -> fuegotest
 
-        fuegomain [label="FuegoMain", style=bold]
+        fuegomain [label="FuegoMain", color=blue]
         gouct -> fuegomain
     }
     @enddot

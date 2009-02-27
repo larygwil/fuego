@@ -45,7 +45,7 @@ GoUctDefaultPriorKnowledge::GoUctDefaultPriorKnowledge(const GoBoard& bd,
 {
 }
 
-void GoUctDefaultPriorKnowledge::Add(SgPoint p, float value, size_t count)
+void GoUctDefaultPriorKnowledge::Add(SgPoint p, float value, float count)
 {
     m_values[p].Add(value, count);
 }
@@ -57,7 +57,7 @@ void GoUctDefaultPriorKnowledge::AddLocalityBonus(GoPointList& emptyPoints,
     if (last != SG_NULLMOVE && last != SG_PASS)
     {
         SgPointArray<int> dist = GoBoardUtil::CfgDistance(m_bd, last, 3);
-        const size_t count = (isSmallBoard ? 4 : 5);
+        const float count = (isSmallBoard ? 4 : 5);
         for (GoPointList::Iterator it(emptyPoints); it; ++it)
         {
             const SgPoint p = *it;
@@ -115,14 +115,14 @@ bool GoUctDefaultPriorKnowledge::FindGlobalPatternAndAtariMoves(
 }
 
 void GoUctDefaultPriorKnowledge::Initialize(SgPoint p, float value,
-                                            size_t count)
+                                            float count)
 {
     m_values[p].Initialize(value, count);
 }
 
-void 
-GoUctDefaultPriorKnowledge::ProcessPosition(std::vector<SgMoveInfo>& outmoves)
+void GoUctDefaultPriorKnowledge::ProcessPosition(bool& deepenTree)
 {
+    SG_UNUSED(deepenTree);
     m_policy.StartPlayout();
     m_policy.GenerateMove();
     GoUctPlayoutPolicyType type = m_policy.MoveType();
@@ -193,19 +193,32 @@ GoUctDefaultPriorKnowledge::ProcessPosition(std::vector<SgMoveInfo>& outmoves)
     }
     AddLocalityBonus(empty, isSmallBoard);
     m_policy.EndPlayout();
+}
 
-    for (std::size_t i = 0; i < outmoves.size(); ++i) 
-    {
-        SgMove p = outmoves[i].m_move;
-        if (m_values[p].IsDefined())
-        {
-            outmoves[i].m_count = m_values[p].Count();
-            outmoves[i].m_value =
-                SgUctSearch::InverseEval(m_values[p].Mean());
-            outmoves[i].m_raveCount = m_values[p].Count();
-            outmoves[i].m_raveValue = m_values[p].Mean();
-        }
-    }
+void GoUctDefaultPriorKnowledge::InitializeMove(SgMove move, float& value,
+                                                float& count)
+{
+    const SgStatisticsBase<float,float>& val = m_values[move];
+    if (val.IsDefined())
+        value = val.Mean();
+    count = val.Count();
+}
+
+//----------------------------------------------------------------------------
+
+GoUctDefaultPriorKnowledgeFactory
+::GoUctDefaultPriorKnowledgeFactory(const GoUctPlayoutPolicyParam& param)
+    : m_param(param)
+{
+}
+
+SgUctPriorKnowledge*
+GoUctDefaultPriorKnowledgeFactory::Create(SgUctThreadState& state)
+{
+    GoUctGlobalSearchState<GoUctPlayoutPolicy<GoUctBoard> >&
+        globalSearchState = dynamic_cast<
+      GoUctGlobalSearchState<GoUctPlayoutPolicy<GoUctBoard> >&>(state);
+    return new GoUctDefaultPriorKnowledge(globalSearchState.Board(), m_param);
 }
 
 //----------------------------------------------------------------------------

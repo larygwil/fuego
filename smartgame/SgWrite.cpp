@@ -17,17 +17,17 @@ using namespace std;
 
 //----------------------------------------------------------------------------
 
-ostream& operator<<(ostream& out, const SgWriteLabel& w)
+ostream& operator<<(ostream& stream, const SgWriteLabel& w)
 {
     string label = w.m_label + " ";
-    out << left << setw(15) << label;
-    return out;
+    stream << left << setw(15) << label;
+    return stream;
 }
 
-ostream& operator<<(ostream& out, const SgWriteLine &w)
+ostream& operator<<(ostream& stream, const SgWriteLine &w)
 {
     SG_UNUSED(w);
-    out <<
+    stream <<
         "----------"
         "----------"
         "----------"
@@ -36,14 +36,14 @@ ostream& operator<<(ostream& out, const SgWriteLine &w)
         "----------"
         "----------"
         "--------\n"; // 78 chars
-    return out;
+    return stream;
 }
 
 //----------------------------------------------------------------------------
 
 ostream& operator<<(ostream& out, const SgWriteMove& w)
 {
-    out << SgBW(w.m_color) << ' ' << SgWritePoint(w.m_point) << ' ';
+    out << SgBW(w.m_c) << ' ' << SgWritePoint(w.m_p) << ' ';
     return out;
 }
 
@@ -101,13 +101,13 @@ ostream& operator<<(ostream& out, const SgWritePointList& write)
     return write.Write(out);
 }
 
-ostream& operator<<(ostream& out, const SgWriteBoolean &w)
+ostream& operator<<(ostream& stream, const SgWriteBoolean &w)
 {
-    if (w.m_value)
-        out << "true";
+    if (w.m_b)
+        stream << "true";
     else
-        out << "false";
-    return out;
+        stream << "false";
+    return stream;
 }
 
 //----------------------------------------------------------------------------

@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <boost/array.hpp>
+#include "GoUctGlobalSearch.h"
 #include "GoUctPatterns.h"
 #include "GoUctPureRandomGenerator.h"
 
