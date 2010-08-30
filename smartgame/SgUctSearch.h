@@ -707,18 +707,15 @@ public:
     /** See BiasTermConstant() */
     void SetBiasTermConstant(float biasTermConstant);
 
-    /** Points at which to recompute children.  
-        Specifies the number of visits at which GenerateAllMoves() is
-        called again at the node. This is to allow multiple knowledge
-        computations to occur as a node becomes more
-        important. Returned move info will be merged with info in the
-        tree. This is can be used prune, add children, give a bonus to
-        a move, etc.
+    /** Point at which to recompute children.  
+        Calls GenerateAllMoves() again. Returned move info will be
+        merged with info in the tree. This is can be used prune, add
+        children, give a bonus to a move, etc.
     */
-    std::vector<std::size_t> KnowledgeThreshold() const;
+    std::size_t KnowledgeThreshold() const;
 
     /** See KnowledgeThreshold() */
-    void SetKnowledgeThreshold(const std::vector<std::size_t>& counts);
+    void SetKnowledgeThreshold(std::size_t count);
 
     /** Maximum number of nodes in the tree.
         @note The search owns two trees, one of which is used as a temporary
@@ -992,7 +989,7 @@ private:
     bool m_rave;
    
     /** See KnowledgeThreshold() */
-    std::vector<std::size_t> m_knowledgeThreshold;
+    std::size_t m_knowledgeThreshold;
 
     /** Flag indicating that the search was terminated because the maximum
         time or number of games was reached.
@@ -1155,8 +1152,6 @@ private:
     float GetValueEstimateRave(const SgUctNode& child) const;
 
     float Log(float x) const;
-
-    bool NeedToComputeKnowledge(const SgUctNode* current);
 
     void PlayGame(SgUctThreadState& state, GlobalLock* lock);
 
@@ -1328,13 +1323,12 @@ inline void SgUctSearch::SetMoveSelect(SgUctMoveSelect moveSelect)
     m_moveSelect = moveSelect;
 }
 
-inline std::vector<std::size_t> SgUctSearch::KnowledgeThreshold() const
+inline std::size_t SgUctSearch::KnowledgeThreshold() const
 {
     return m_knowledgeThreshold;
 }
 
-inline void 
-SgUctSearch::SetKnowledgeThreshold(const std::vector<std::size_t>& t)
+inline void SgUctSearch::SetKnowledgeThreshold(std::size_t t)
 {
     m_knowledgeThreshold = t;
 }

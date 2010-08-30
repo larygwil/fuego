@@ -20,14 +20,16 @@ FuegoMainEngine::FuegoMainEngine(GtpInputStream& in, GtpOutputStream& out,
                                  bool noHandicap)
     : GoGtpEngine(in, out, fixedBoardSize, programPath, false, noHandicap),
       m_uctCommands(Board(), m_player),
-      m_autoBookCommands(Board(), m_player, m_autoBook),
       m_safetyCommands(Board())
 {
     m_uctCommands.Register(*this);
     m_safetyCommands.Register(*this);
-    m_autoBookCommands.Register(*this);
     Register("fuego-license", &FuegoMainEngine::CmdLicense, this);
-    SetPlayer(new PlayerType(Board()));
+    SetPlayer(new
+              GoUctPlayer<GoUctGlobalSearch<GoUctPlayoutPolicy<GoUctBoard>,
+              GoUctPlayoutPolicyFactory<GoUctBoard> >,
+              GoUctGlobalSearchState<GoUctPlayoutPolicy<GoUctBoard> > >
+              (Board()));
 }
 
 FuegoMainEngine::~FuegoMainEngine()
@@ -39,7 +41,6 @@ void FuegoMainEngine::CmdAnalyzeCommands(GtpCommand& cmd)
     GoGtpEngine::CmdAnalyzeCommands(cmd);
     m_uctCommands.AddGoGuiAnalyzeCommands(cmd);
     m_safetyCommands.AddGoGuiAnalyzeCommands(cmd);
-    m_autoBookCommands.AddGoGuiAnalyzeCommands(cmd);
     cmd << "string/Fuego License/fuego-license\n";
     string response = cmd.Response();
     cmd.SetResponse(GoGtpCommandUtil::SortResponseAnalyzeCommands(response));
@@ -49,7 +50,7 @@ void FuegoMainEngine::CmdLicense(GtpCommand& cmd)
 {
     cmd << "\n" <<
         "Fuego " << FuegoMainUtil::Version() << "\n" <<
-        "Copyright (C) 2009 - 10 by the authors of the Fuego project.\n"
+        "Copyright (C) 2009 by the authors of the Fuego project.\n"
         "See http://fuego.sf.net for information about Fuego. Fuego comes\n"
         "with NO WARRANTY to the extent permitted by law. This program is\n"
         "free software; you can redistribute it and/or modify it under the\n"

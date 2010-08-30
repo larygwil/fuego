@@ -74,7 +74,7 @@ loadsgf sgf/book_test/book.2.sgf
 
 loadsgf sgf/book_test/book.3.sgf
 150 book_moves
-#? [C4]
+#? [D4]
 loadsgf sgf/book_test/book.4.sgf
 160 book_moves
 #? [D3]
@@ -99,7 +99,3 @@ loadsgf sgf/book_test/book.10.sgf
 loadsgf sgf/book_test/book.11.sgf
 230 book_moves
 #? [F6]
-loadsgf sgf/book_test/book.12.sgf
-240 book_moves
-#? [F5]
-# recommended by Yu Ping.

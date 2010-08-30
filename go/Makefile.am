@@ -1,7 +1,6 @@
 noinst_LIBRARIES = libfuego_go.a
 
 libfuego_go_a_SOURCES = \
-GoAutoBook.cpp \
 GoBensonSolver.cpp \
 GoBlock.cpp \
 GoBoard.cpp \
@@ -44,7 +43,6 @@ GoUtil.cpp
 
 noinst_HEADERS = \
 GoAssertBoardRestored.h \
-GoAutoBook.h \
 GoBensonSolver.h \
 GoBlock.h \
 GoBoard.h \

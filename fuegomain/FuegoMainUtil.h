@@ -28,10 +28,8 @@ namespace FuegoMainUtil
 
     /** Return Fuego version.
         If the macro VERSION was defined by the build system during compile
-        time, its value is used as the version, otherwise the version
-        is "(__DATE__)". 
-        If SVNREV is defined, ( SVNREV ) is added.
-        If compiled in debug mode, " (dbg)" is added.
+        time, its value will be used as the version, otherwise the version
+        is "(__DATE__)". If compiled in debug mode, " (dbg)" will be added.
     */
     std::string Version();
 }

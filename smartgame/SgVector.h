@@ -6,9 +6,8 @@
 #ifndef SG_VECTOR_H
 #define SG_VECTOR_H
 
-#include <algorithm>
 #include <functional>
-#include <iterator>
+#include <algorithm>
 #include <vector>
 
 using std::vector;

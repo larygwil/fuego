@@ -11,19 +11,13 @@
 #include "FuegoMainEngine.h"
 #include "FuegoMainUtil.h"
 #include "GoInit.h"
+#include "SgCmdLineOpt.h"
 #include "SgDebug.h"
 #include "SgException.h"
 #include "SgInit.h"
 
-#include <boost/utility.hpp>
-#include <boost/program_options/options_description.hpp>
-#include <boost/program_options/cmdline.hpp>
-#include <boost/program_options/variables_map.hpp>
-#include <boost/program_options/parsers.hpp>
-
 using namespace std;
 using boost::filesystem::path;
-namespace po = boost::program_options;
 
 //----------------------------------------------------------------------------
 
@@ -32,11 +26,11 @@ namespace {
 /** @name Settings from command line options */
 // @{
 
-bool g_noHandicap = false;
+bool g_noHandicap;
 
-bool g_noBook = false;
+bool g_noBook;
 
-bool g_quiet = false;
+bool g_quiet;
 
 int g_fixedBoardSize;
 
@@ -79,55 +73,51 @@ void MainLoop()
     engine.MainLoop();
 }
 
-void Help(po::options_description& desc)
-{
-    cout << "Options:\n" << desc << "\n";
-    exit(0);
-}
-
 void ParseOptions(int argc, char** argv)
 {
-    po::options_description options_desc;
-    options_desc.add_options()
-        ("config", 
-         po::value<std::string>(&g_config)->default_value(""),
-         "execuate GTP commands from file before starting main command loop")
-        ("help", "Displays this help and exit")
-        ("maxgames", 
-         po::value<int>(&g_maxGames)->default_value(-1),
-         "make clear_board fail after n invocations")
-        ("nobook", "don't automatically load opening book")
-        ("nohandicap", "don't support handicap commands")
-        ("quiet", "don't print debug messages")
-        ("srand", 
-         po::value<int>(&g_srand)->default_value(0),
-         "set random seed (-1:none, 0:time(0))")
-        ("size", 
-         po::value<int>(&g_fixedBoardSize)->default_value(0),
-         "initial (and fixed) board size");
-    po::variables_map vm;
-    try {
-        po::store(po::parse_command_line(argc, argv, options_desc), vm);
-        po::notify(vm);
+    SgCmdLineOpt opt;
+    vector<string> specs;
+    specs.push_back("config:");
+    specs.push_back("help");
+    specs.push_back("maxgames:");
+    specs.push_back("nobook");
+    specs.push_back("nohandicap");
+    specs.push_back("quiet");
+    specs.push_back("srand:");
+    specs.push_back("size:");
+    opt.Parse(argc, argv, specs);
+    if (opt.GetArguments().size() > 0)
+        throw SgException("No arguments allowed");
+    if (opt.Contains("help"))
+    {
+        cout <<
+            "Options:\n"
+            "  -config file execute GTP commands from file before\n"
+            "               starting main command loop\n"
+            "  -help        display this help and exit\n"
+            "  -maxgames n  make clear_board fail after n invocations\n"
+            "  -nobook      don't automatically load opening book\n"
+            "  -nohandicap  don't support handicap commands\n"
+            "  -quiet       don't print debug messages\n"
+            "  -size        initial (and fixed) board size\n"
+            "  -srand       set random seed (-1:none, 0:time(0))\n";
+        exit(0);
     }
-    catch(...) {
-        Help(options_desc);
-    }
-    if (vm.count("help"))
-        Help(options_desc);
-    if (vm.count("nobook"))
-        g_noBook = true;
-    if (vm.count("nohandicap"))
-        g_noHandicap = true;
-    if (vm.count("quiet"))
-        g_quiet = true;
+    g_config = opt.GetString("config", "");
+    g_maxGames = opt.GetInteger("maxgames", -1);
+    g_quiet = opt.Contains("quiet");
+    g_noHandicap = opt.Contains("nohandicap");
+    g_noBook = opt.Contains("nobook");
+    // Don't be deterministic by default (0 means non-deterministic seed)
+    g_srand = opt.GetInteger("srand", 0);
+    g_fixedBoardSize = opt.GetInteger("size", 0);
 }
 
 void PrintStartupMessage()
 {
     SgDebug() <<
         "Fuego " << FuegoMainUtil::Version() << "\n"
-        "Copyright (C) 2009-10 by the authors of the Fuego project.\n"
+        "Copyright (C) 2009 by the authors of the Fuego project.\n"
         "This program comes with ABSOLUTELY NO WARRANTY. This is\n"
         "free software and you are welcome to redistribute it under\n"
         "certain conditions. Type `fuego-license' for details.\n\n";

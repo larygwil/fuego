@@ -2,7 +2,6 @@ noinst_LIBRARIES = libfuego_smartgame.a
 
 libfuego_smartgame_a_SOURCES = \
 SgBoardConst.cpp \
-SgBookBuilder.cpp \
 SgCmdLineOpt.cpp \
 SgConnCompIterator.cpp \
 SgDebug.cpp \
@@ -51,7 +50,6 @@ SgWrite.cpp
 
 noinst_HEADERS = \
 SgArray.h \
-SgBookBuilder.h \
 SgBWArray.h \
 SgBWSet.h \
 SgBlackWhite.h \
@@ -107,7 +105,6 @@ SgStrategy.h \
 SgStringUtil.h \
 SgMpiSynchronizer.h \
 SgSystem.h \
-SgThreadedWorker.h \
 SgTime.h \
 SgTimeControl.h \
 SgTimeRecord.h \

@@ -394,4 +394,3 @@ loadsgf sgf/games/2007/CGOS/201395.sgf 18
 #-----------------------------------------------------------------------------
 
 uct_stat_player
-# print player statistics to log file

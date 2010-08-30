@@ -15,7 +15,6 @@
 #include <limits>
 #include <time.h>
 #include <boost/filesystem/operations.hpp>
-#include "GoEyeUtil.h"
 #include "GoGtpCommandUtil.h"
 #include "GoNodeUtil.h"
 #include "GoPlayer.h"
@@ -82,7 +81,6 @@ GoGtpEngine::GoGtpEngine(GtpInputStream& in, GtpOutputStream& out, int fixedBoar
                          bool noHandicap)
     : GtpEngine(in, out),
       m_player(0),
-      m_autoBook(0),
       m_noPlayer(noPlayer),
       m_acceptIllegal(false),
       m_autoSave(false),
@@ -998,24 +996,7 @@ void GoGtpEngine::CmdPointInfo(GtpCommand& cmd)
             << SgWriteLabel("IsFirst") << bd.IsFirst(p) << '\n'
             << SgWriteLabel("IsLegal/B") << bd.IsLegal(p, SG_BLACK) << '\n'
             << SgWriteLabel("IsLegal/W") << bd.IsLegal(p, SG_WHITE) << '\n'
-            << SgWriteLabel("IsSuicide") << bd.IsSuicide(p) << '\n'
-            << SgWriteLabel("MakesNakadeShape/B") 
-            << GoEyeUtil::MakesNakadeShape(bd, p, SG_BLACK) << '\n'
-            << SgWriteLabel("MakesNakadeShape/W") 
-            << GoEyeUtil::MakesNakadeShape(bd, p, SG_WHITE) << '\n'
-            << SgWriteLabel("IsSimpleEye/B") 
-            << GoEyeUtil::IsSimpleEye(bd, p, SG_BLACK) << '\n'
-            << SgWriteLabel("IsSimpleEye/W") 
-            << GoEyeUtil::IsSimpleEye(bd, p, SG_WHITE) << '\n'
-            << SgWriteLabel("IsSinglePointEye/B") 
-            << GoEyeUtil::IsSinglePointEye(bd, p, SG_BLACK) << '\n'
-            << SgWriteLabel("IsSinglePointEye/W") 
-            << GoEyeUtil::IsSinglePointEye(bd, p, SG_WHITE) << '\n'
-            << SgWriteLabel("IsPossibleEye/B") 
-            << GoEyeUtil::IsPossibleEye(bd, SG_BLACK, p) << '\n'
-            << SgWriteLabel("IsPossibleEye/W") 
-            << GoEyeUtil::IsPossibleEye(bd, SG_WHITE, p) << '\n'
-            ;
+            << SgWriteLabel("IsSuicide") << bd.IsSuicide(p) << '\n';
 }
 
 /** Print some information about player board.
@@ -1351,13 +1332,7 @@ SgPoint GoGtpEngine::GenMove(SgBlackWhite color, bool ignoreClock)
     AddStatistics("GAME", m_autoSaveFileName);
     AddStatistics("MOVE", GetGame().CurrentMoveNumber() + 1);
     SgPoint move = SG_NULLMOVE;
-    if (m_autoBook.get() != 0)
-    {
-        SgDebug() << "GoGtpEngine: Checking AutoBook instead of book\n";
-        move = m_autoBook->LookupMove(bd);
-    }
-    else 
-        move = m_book.LookupMove(bd);
+    move = m_book.LookupMove(bd);
     m_mpiSynchronizer->SynchronizeMove(move);
     if (move != SG_NULLMOVE)
     {

@@ -18,7 +18,6 @@
 
 //----------------------------------------------------------------------------
 
-namespace {
 static const bool CHECK = SG_CHECK && true;
 
 static const bool HEAVYCHECK = SG_HEAVYCHECK && CHECK && false;
@@ -32,7 +31,6 @@ const int REGION_REMOVE_BLOCK = REGION_CODE_BASE + 2;
 const int REGION_ADD_BLOCK = REGION_CODE_BASE + 3;
 const int REGION_ADD_STONE = REGION_CODE_BASE + 4;
 const int REGION_ADD_STONE_TO_BLOCK = REGION_CODE_BASE + 5;
-}
 //----------------------------------------------------------------------------
 
 bool GoRegionBoard::IsSafeBlock(SgPoint p) const

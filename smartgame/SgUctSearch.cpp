@@ -67,7 +67,6 @@ void SgUctGameInfo::Clear(std::size_t numberPlayouts)
 SgUctThreadState::SgUctThreadState(size_t threadId, int moveRange)
     : m_threadId(threadId),
       m_isSearchInitialized(false),
-      m_isTreeOutOfMem(false),
       m_randomizeCounter(0)
 {
     if (moveRange > 0)
@@ -208,7 +207,7 @@ SgUctSearch::SgUctSearch(SgUctThreadStateFactory* threadStateFactory,
     : m_threadStateFactory(threadStateFactory),
       m_logGames(false),
       m_rave(false),
-      m_knowledgeThreshold(),
+      m_knowledgeThreshold(0),
       m_moveSelect(SG_UCTMOVESELECT_COUNT),
       m_raveCheckSame(false),
       m_randomizeRaveFrequency(20),
@@ -529,14 +528,9 @@ SgUctTree& SgUctSearch::GetTempTree()
     // m_tree.MaxNodes()), because of the delayed thread (and thereby
     // allocator) creation in SgUctSearch
     if (m_tempTree.NuAllocators() != NumberThreads())
-    {
         m_tempTree.CreateAllocators(NumberThreads());
+    if (m_tempTree.MaxNodes() != MaxNodes())
         m_tempTree.SetMaxNodes(MaxNodes());
-    }
-    else if (m_tempTree.MaxNodes() != MaxNodes())
-    {
-    	m_tempTree.SetMaxNodes(MaxNodes());
-    }
     return m_tempTree;
 }
 
@@ -649,31 +643,6 @@ void SgUctSearch::CreateChildren(SgUctThreadState& state,
         return;
     }
     m_tree.MergeChildren(threadId, node, state.m_moves, deleteChildTrees);
-}
-
-bool SgUctSearch::NeedToComputeKnowledge(const SgUctNode* current)
-{
-    if (m_knowledgeThreshold.empty())
-        return false;
-    for (std::size_t i = 0; i < m_knowledgeThreshold.size(); ++i)
-    {
-        const std::size_t threshold = m_knowledgeThreshold[i];
-        if (current->KnowledgeCount() < threshold)
-        {
-            if (current->MoveCount() >= threshold)
-            {
-                // Mark knowledge computed immediately so other
-                // threads fall through and do not waste time
-                // re-computing this knowledge.
-                SgUctNode* node = const_cast<SgUctNode*>(current);
-                node->SetKnowledgeCount(threshold);
-                SG_ASSERT(current->MoveCount());
-                return true;
-            }
-            return false;
-        }
-    }
-    return false;
 }
 
 void SgUctSearch::OnStartSearch()
@@ -859,12 +828,22 @@ bool SgUctSearch::PlayInTree(SgUctThreadState& state, bool& isTerminal)
             else
                 break;
         }
-        else if (NeedToComputeKnowledge(current))
+        else if (  current->KnowledgeCount() < m_knowledgeThreshold
+                && current->MoveCount() >= m_knowledgeThreshold
+                )
         {
+            {
+                // Mark knowledge computed immediately so other threads
+                // fall through and do not waste time re-computing this
+                // knowledge.
+                SgUctNode* node = const_cast<SgUctNode*>(current);
+                node->SetKnowledgeCount(m_knowledgeThreshold);
+            }
+        	SG_ASSERT(current->MoveCount());
             m_statistics.m_knowledge++;
             deepenTree = false;
             SgProvenNodeType provenType = SG_NOT_PROVEN;
-            bool truncate = state.GenerateAllMoves(current->KnowledgeCount(), 
+            bool truncate = state.GenerateAllMoves(current->MoveCount(), 
                                                    state.m_moves,
                                                    provenType);
             if (current == root)
@@ -972,8 +951,6 @@ float SgUctSearch::Search(std::size_t maxGames, double maxTime,
                       << (m_timer.GetTime() - startPruneTime) << "\n";
             if (prunedSizePercentage > 50)
                 pruneMinCount *= 2;
-            else
-             	pruneMinCount = m_pruneMinCount; 
             m_tree.Swap(tempTree);
         }
     }
@@ -1350,6 +1327,7 @@ void SgUctSearch::UpdateStatistics(const SgUctGameInfo& info)
 
 void SgUctSearch::UpdateTree(const SgUctGameInfo& info)
 {
+    // We count all playouts as one result
     float eval = 0;
     for (size_t i = 0; i < m_numberPlayouts; ++i)
         eval += info.m_eval[i];
@@ -1361,7 +1339,7 @@ void SgUctSearch::UpdateTree(const SgUctGameInfo& info)
     {
         const SgUctNode& node = *nodes[i];
         const SgUctNode* father = (i > 0 ? nodes[i - 1] : 0);
-        m_tree.AddGameResults(node, father, i % 2 == 0 ? eval : inverseEval, m_numberPlayouts);
+        m_tree.AddGameResult(node, father, i % 2 == 0 ? eval : inverseEval);
     }
 }
 
@@ -1369,7 +1347,7 @@ void SgUctSearch::WriteStatistics(ostream& out) const
 {
     out << SgWriteLabel("Count") << m_tree.Root().MoveCount() << '\n'
         << SgWriteLabel("Nodes") << m_tree.NuNodes() << '\n';
-    if (!m_knowledgeThreshold.empty())
+    if (m_knowledgeThreshold)
         out << SgWriteLabel("Knowledge") 
             << m_statistics.m_knowledge << " (" << fixed << setprecision(1) 
             << m_statistics.m_knowledge * 100.0 / m_tree.Root().MoveCount()

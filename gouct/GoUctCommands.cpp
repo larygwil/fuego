@@ -131,34 +131,6 @@ string SearchModeToString(GoUctGlobalSearchMode mode)
     }
 }
 
-string KnowledgeThresholdToString(const std::vector<std::size_t>& t)
-{
-    if (t.empty())
-        return "0";
-    std::ostringstream os;
-    os << '\"';
-    for (std::size_t i = 0; i < t.size(); ++i)
-    {
-        if (i > 0) 
-            os << ' ';
-        os << t[i];
-    }
-    os << '\"';
-    return os.str();
-}
-
-std::vector<std::size_t> KnowledgeThresholdFromString(const std::string& val)
-{
-    std::vector<std::size_t> v;
-    std::istringstream is(val);
-    std::size_t t;
-    while (is >> t)
-        v.push_back(t);
-    if (v.size() == 1 && v[0] == 0)
-        v.clear();
-    return v;
-}
-
 } // namespace
 
 //----------------------------------------------------------------------------
@@ -589,7 +561,7 @@ void GoUctCommands::CmdParamSearch(GtpCommand& cmd)
             << "[string] expand_threshold " << s.ExpandThreshold() << '\n'
             << "[string] first_play_urgency " << s.FirstPlayUrgency() << '\n'
             << "[string] knowledge_threshold "
-            << KnowledgeThresholdToString(s.KnowledgeThreshold()) << '\n'
+            << s.KnowledgeThreshold() << '\n'
             << "[list/none/counts/sequence] live_gfx "
             << LiveGfxToString(s.LiveGfx()) << '\n'
             << "[string] live_gfx_interval " << s.LiveGfxInterval() << '\n'
@@ -612,7 +584,7 @@ void GoUctCommands::CmdParamSearch(GtpCommand& cmd)
         if (name == "keep_games")
             s.SetKeepGames(cmd.BoolArg(1));
         else if (name == "knowledge_threshold")
-            s.SetKnowledgeThreshold(KnowledgeThresholdFromString(cmd.Arg(1)));
+            s.SetKnowledgeThreshold(cmd.SizeTypeArg(1, 0));
         else if (name == "lock_free")
             s.SetLockFree(cmd.BoolArg(1));
         else if (name == "log_games")
@@ -879,10 +851,7 @@ void GoUctCommands::CmdStatPolicy(GtpCommand& cmd)
     cmd.CheckArgNone();
     if (! Player().m_playoutPolicyParam.m_statisticsEnabled)
         SgWarning() << "statistics not enabled in policy parameters\n";
-    cmd << "Black Statistics:\n";
-    Policy(0).Statistics(SG_BLACK).Write(cmd);
-    cmd << "\nWhite Statistics:\n";
-    Policy(0).Statistics(SG_WHITE).Write(cmd);
+    Policy(0).Statistics().Write(cmd);
 }
 
 /** Clear statistics of GoUctPlayoutPolicy

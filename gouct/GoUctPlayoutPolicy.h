@@ -151,8 +151,7 @@ public:
         The statistics are only collected, if enabled with
         EnableStatistics().
     */
-    //const GoUctPlayoutPolicyStat& Statistics() const;
-	const GoUctPlayoutPolicyStat& Statistics(SgBlackWhite color) const;
+    const GoUctPlayoutPolicyStat& Statistics() const;
 
     void ClearStatistics();
 
@@ -246,7 +245,7 @@ private:
 
     GoUctPureRandomGenerator<BOARD> m_pureRandomGenerator;
 
-    SgBWArray<GoUctPlayoutPolicyStat> m_statistics;
+    GoUctPlayoutPolicyStat m_statistics;
 
     /** Try to correct the proposed move, typically by moving it to a
         'better' point such as other liberty or neighbor.
@@ -288,7 +287,7 @@ private:
     /** see GoUctUtil::SelectRandom */
     SgPoint SelectRandom();
 
-    /** Add statistics for most recently generated move. */
+    /** Add statistics for most recently played move. */
     void UpdateStatistics();
 };
 
@@ -367,14 +366,12 @@ GoUctPlayoutPolicy<BOARD>::GoUctPlayoutPolicy(const BOARD& bd,
       m_captureGenerator(bd),
       m_pureRandomGenerator(bd, m_random)
 {
-	ClearStatistics();
 }
 
 template<class BOARD>
 void GoUctPlayoutPolicy<BOARD>::ClearStatistics()
 {
-    m_statistics[SG_BLACK].Clear();
-    m_statistics[SG_WHITE].Clear();
+    m_statistics.Clear();
 }
 
 template<class BOARD>
@@ -475,8 +472,6 @@ bool GoUctPlayoutPolicy<BOARD>::GenerateLowLibMove(SgPoint lastMove)
 {
     SG_ASSERT(! SgIsSpecialMove(lastMove));
     SG_ASSERT(! m_bd.IsEmpty(lastMove));
-    SG_ASSERT(m_moves.IsEmpty());
-    
     const SgBlackWhite toPlay = m_bd.ToPlay();
 
     // take liberty of last move
@@ -489,16 +484,16 @@ bool GoUctPlayoutPolicy<BOARD>::GenerateLowLibMove(SgPoint lastMove)
     if (m_bd.NumNeighbors(lastMove, toPlay) != 0)
     {
         // play liberties of neighbor blocks
-        SgSList<SgPoint,4> ourLowLibBlocks;
+        SgSList<SgPoint,4> anchorList;
         for (SgNb4Iterator it(lastMove); it; ++it)
         {
             if (m_bd.GetColor(*it) == toPlay
                 && m_bd.NumLiberties(*it) == 2)
             {
                 const SgPoint anchor = m_bd.Anchor(*it);
-                if (! ourLowLibBlocks.Contains(anchor))
+                if (! anchorList.Contains(anchor))
                 {
-                    ourLowLibBlocks.PushBack(anchor);
+                    anchorList.PushBack(anchor);
                     PlayGoodLiberties(anchor);
                 }
             }
@@ -758,20 +753,11 @@ inline SgPoint GoUctPlayoutPolicy<BOARD>::SelectRandom()
                                    m_balancer);
 }
 
-/*
 template<class BOARD>
 const GoUctPlayoutPolicyStat&
 GoUctPlayoutPolicy<BOARD>::Statistics() const
 {
-    return Statistics(m_bd.ToPlay());
-}
-*/
-
-template<class BOARD>
-const GoUctPlayoutPolicyStat&
-GoUctPlayoutPolicy<BOARD>::Statistics(SgBlackWhite color) const
-{
-    return m_statistics[color];
+    return m_statistics;
 }
 
 template<class BOARD>
@@ -785,21 +771,20 @@ void GoUctPlayoutPolicy<BOARD>::StartPlayout()
 template<class BOARD>
 void GoUctPlayoutPolicy<BOARD>::UpdateStatistics()
 {
-    GoUctPlayoutPolicyStat& statistics = m_statistics[m_bd.ToPlay()];
-    ++statistics.m_nuMoves;
-    ++statistics.m_nuMoveType[m_moveType];
+    ++m_statistics.m_nuMoves;
+    ++m_statistics.m_nuMoveType[m_moveType];
     if (m_moveType == GOUCT_RANDOM)
     {
         if (m_nonRandLen > 0)
         {
-            statistics.m_nonRandLen.Add(m_nonRandLen);
+            m_statistics.m_nonRandLen.Add(m_nonRandLen);
             m_nonRandLen = 0;
         }
     }
     else
     {
         ++m_nonRandLen;
-        statistics.m_moveListLen.Add(GetEquivalentBestMoves().Length());
+        m_statistics.m_moveListLen.Add(GetEquivalentBestMoves().Length());
     }
 }
 
