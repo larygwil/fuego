@@ -31,7 +31,6 @@ simpleplayers.tst \
 static_safety_basics.tst \
 static_safety_from_semeai.tst \
 static_safety_fullboard.tst \
-static_safety_fullboard_benson.tst \
 static_safety_seki.tst \
 static_winner.tst \
 tactics_19.tst \
@@ -222,7 +221,6 @@ sgf/games/2010/FuegoGB-Barcelona/Tsai-FuegoGB.sgf \
 sgf/games/2010/FuegoGB-Barcelona/Yen-FuegoGB.sgf \
 sgf/games/2010/LittleGolem/1173624.sgf \
 sgf/games/2010/LittleGolem/1177582.sgf \
-sgf/games/2011/CGOS/Fuego-Amigo-loss-bug.sgf \
 sgf/games/2011/KGS-January/PueGo-pachi2.sgf \
 sgf/games/2011/LittleGolem/1226980.sgf \
 sgf/games/pro-9x9/mz1.sgf \

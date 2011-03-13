@@ -5,13 +5,25 @@ of changes in the main development branch, consult the version control
 history.
 
 
-Current development version
-===========================
+Version 1.1 - 2011 Mar 11
+=========================
 
-*
+* Added missing doxygen documentation source files to distribution
+* Fixed compilation error if HOST_CPU was undefined
+* Set default for lock-free search to true if HOST_CPU is i686
+* Implement cgos-gameover to fix unnecessary pondering with CGOS Python client
+  after game is over
+* Avoid a crash if more than 2 GB are allocated on 32-bit Windoes systems
+  without support for large memory addresses (tickets #73, #76)
+  The default memory used is now limited to 1 GB and the number od threads
+  to 4. The expand threshold is set to 3.
+* Updated documentation for 64-bit compilation on Windows (ticket #73)
+* configure.ac: removed GCC warning flags -Wconversion, -ansi, -pedantic,
+  because they generate warnings with Boost 1.45
+* Check for existence of sys/sysctl.h with autoconf and use it in SgPlatform
+  only if it exists.
 
-
-Version 1.0 - 2010 Jan 23
+Version 1.0 - 2011 Jan 23
 =========================
 
 * Command line option parsing is now done with boost::program_options.

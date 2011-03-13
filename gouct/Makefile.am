@@ -4,12 +4,12 @@ libfuego_gouct_a_SOURCES = \
 GoUctBoard.cpp \
 GoUctCommands.cpp \
 GoUctDefaultPriorKnowledge.cpp \
-GoUctDefaultMoveFilter.cpp \
+GoUctDefaultRootFilter.cpp \
 GoUctEstimatorStat.cpp \
 GoUctGlobalSearch.cpp \
 GoUctObjectWithSearch.cpp \
 GoUctPlayoutPolicy.cpp \
-GoUctMoveFilter.cpp \
+GoUctRootFilter.cpp \
 GoUctSearch.cpp \
 GoUctUtil.cpp
 
@@ -19,7 +19,7 @@ GoUctBookBuilder.h \
 GoUctBookBuilderCommands.h \
 GoUctCommands.h \
 GoUctDefaultPriorKnowledge.h \
-GoUctDefaultMoveFilter.h \
+GoUctDefaultRootFilter.h \
 GoUctEstimatorStat.h \
 GoUctGlobalSearch.h \
 GoUctObjectWithSearch.h \
@@ -27,7 +27,7 @@ GoUctPatterns.h \
 GoUctPlayer.h \
 GoUctPlayoutPolicy.h \
 GoUctPureRandomGenerator.h \
-GoUctMoveFilter.h \
+GoUctRootFilter.h \
 GoUctSearch.h \
 GoUctUtil.h
 

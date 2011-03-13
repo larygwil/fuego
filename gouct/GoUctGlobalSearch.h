@@ -16,7 +16,6 @@
 #include "GoUctDefaultPriorKnowledge.h"
 #include "GoUctSearch.h"
 #include "GoUctUtil.h"
-#include "GoUctDefaultMoveFilter.h"
 
 #define BOOST_VERSION_MAJOR (BOOST_VERSION / 100000)
 #define BOOST_VERSION_MINOR (BOOST_VERSION / 100 % 1000)
@@ -67,8 +66,6 @@ struct GoUctGlobalSearchStateParam
         playing strength. The modification can be disabled by setting the
         parameter to zero. The default value is 0.02. */
     SgUctValue m_scoreModification;
-
-    bool m_useTreeFilter;
 
     GoUctGlobalSearchStateParam();
 };
@@ -131,7 +128,6 @@ public:
                            POLICY* policy,
                            const GoUctGlobalSearchStateParam& param,
                            const GoUctPlayoutPolicyParam& policyParam,
-                           const GoUctDefaultMoveFilterParam& treeFilterParam,
                            const SgBWSet& safe,
                            const SgPointArray<bool>& allSafe);
 
@@ -169,8 +165,6 @@ private:
 
     const GoUctPlayoutPolicyParam& m_policyParam;
 
-    const GoUctDefaultMoveFilterParam& m_treeFilterParam;
-
     /** See SetMercyRule() */
     bool m_mercyRuleTriggered;
 
@@ -203,15 +197,11 @@ private:
 
     boost::scoped_ptr<POLICY> m_policy;
 
-    GoUctDefaultMoveFilter m_treeFilter;
-
     /** Not implemented */
     GoUctGlobalSearchState(const GoUctGlobalSearchState& search);
 
     /** Not implemented */
     GoUctGlobalSearchState& operator=(const GoUctGlobalSearchState& search);
-
-    void ApplyFilter(std::vector<SgUctMoveInfo>& moves);
 
     bool CheckMercyRule();
 
@@ -229,17 +219,14 @@ GoUctGlobalSearchState<POLICY>::GoUctGlobalSearchState(unsigned int threadId,
          const GoBoard& bd, POLICY* policy,
          const GoUctGlobalSearchStateParam& param,
          const GoUctPlayoutPolicyParam& policyParam,
-         const GoUctDefaultMoveFilterParam& treeFilterParam,                                                   
          const SgBWSet& safe, const SgPointArray<bool>& allSafe)
     : GoUctState(threadId, bd),
       m_safe(safe),
       m_allSafe(allSafe),
       m_param(param),
       m_policyParam(policyParam),
-      m_treeFilterParam(treeFilterParam),
       m_priorKnowledge(Board(), m_policyParam),
-      m_policy(policy),
-      m_treeFilter(Board(), m_treeFilterParam)
+      m_policy(policy)
 {
     ClearTerritoryStatistics();
 }
@@ -269,24 +256,6 @@ bool GoUctGlobalSearchState<POLICY>::CheckMercyRule()
     else
         SG_ASSERT(! m_mercyRuleTriggered);
     return m_mercyRuleTriggered;
-}
-
-template<class POLICY>
-void GoUctGlobalSearchState<POLICY>::ApplyFilter(std::vector<SgUctMoveInfo>& moves)
-{
-    std::vector<SgPoint> filtered = m_treeFilter.Get();
-    
-    if (filtered.size() > 0) {
-        // Filter without changing the order of the unfiltered moves.
-        // Copied from SgUctSearch::ApplyRootFilter()
-        std::vector<SgUctMoveInfo> filteredMoves;
-        for (std::vector<SgUctMoveInfo>::const_iterator it = moves.begin();
-             it != moves.end(); ++it)
-            if (find(filtered.begin(), filtered.end(), it->m_move)
-                == filtered.end())
-                filteredMoves.push_back(*it);
-        moves = filteredMoves;
-    }
 }
 
 template<class POLICY>
@@ -370,7 +339,7 @@ SgUctValue GoUctGlobalSearchState<POLICY>::EvaluateBoard(const BOARD& bd,
             + lengthMod;
     else
         // Draw. Can happen if komi is an integer
-        return 0.5;
+        return 0;
 }
 
 template<class POLICY>
@@ -446,12 +415,8 @@ bool GoUctGlobalSearchState<POLICY>::GenerateAllMoves(SgUctValue count,
     GenerateLegalMoves(moves);
     if (! moves.empty())
     {
-        if (count == 0) 
-        {
-            if (m_param.m_useTreeFilter)
-                ApplyFilter(moves);
+        if (count == 0)
             m_priorKnowledge.ProcessPosition(moves);
-        }
     }
     return false;
 }
@@ -567,7 +532,6 @@ public:
         @param bd
         @param playoutPolicyFactory Factory for playout policies.
         @param policyParam
-        @param treeFilterParam
         Stores a reference. Lifetime of parameter must exceed the lifetime of
         this instance.
         @param safe
@@ -575,7 +539,6 @@ public:
     GoUctGlobalSearchStateFactory(GoBoard& bd,
                                   FACTORY& playoutPolicyFactory,
                                   const GoUctPlayoutPolicyParam& policyParam,
-                                  const GoUctDefaultMoveFilterParam& treeFilterParam,
                                   const SgBWSet& safe,
                                   const SgPointArray<bool>& allSafe);
 
@@ -588,8 +551,6 @@ private:
 
     const GoUctPlayoutPolicyParam& m_policyParam;
 
-    const GoUctDefaultMoveFilterParam& m_treeFilterParam;
-
     const SgBWSet& m_safe;
 
     const SgPointArray<bool>& m_allSafe;
@@ -600,13 +561,11 @@ GoUctGlobalSearchStateFactory<POLICY,FACTORY>
 ::GoUctGlobalSearchStateFactory(GoBoard& bd,
                   FACTORY& playoutPolicyFactory,
                   const GoUctPlayoutPolicyParam& policyParam,
-                  const GoUctDefaultMoveFilterParam& treeFilterParam,
                   const SgBWSet& safe,
                   const SgPointArray<bool>& allSafe)
     : m_bd(bd),
       m_playoutPolicyFactory(playoutPolicyFactory),
       m_policyParam(policyParam),
-      m_treeFilterParam(treeFilterParam),
       m_safe(safe),
       m_allSafe(allSafe)
 {
@@ -633,8 +592,7 @@ public:
         @param policyParam */
     GoUctGlobalSearch(GoBoard& bd,
                       FACTORY* playoutPolicyFactory,
-                      const GoUctPlayoutPolicyParam& policyParam,
-                      const GoUctDefaultMoveFilterParam& treeFilterParam);
+                      const GoUctPlayoutPolicyParam& policyParam);
 
     /** @name Pure virtual functions of SgUctSearch */
     // @{
@@ -684,8 +642,7 @@ private:
 template<class POLICY, class FACTORY>
 GoUctGlobalSearch<POLICY,FACTORY>::GoUctGlobalSearch(GoBoard& bd,
                                                      FACTORY* playoutFactory,
-                                                     const GoUctPlayoutPolicyParam& policyParam,
-                                                     const GoUctDefaultMoveFilterParam& rootFilterParam)
+                                  const GoUctPlayoutPolicyParam& policyParam)
     : GoUctSearch(bd, 0),
       m_playoutPolicyFactory(playoutFactory),
       m_regions(bd),
@@ -695,7 +652,6 @@ GoUctGlobalSearch<POLICY,FACTORY>::GoUctGlobalSearch(GoBoard& bd,
         new GoUctGlobalSearchStateFactory<POLICY,FACTORY>(bd,
                                                           *playoutFactory,
                                                           policyParam,
-                                                          rootFilterParam,
                                                           m_safe, m_allSafe);
     SetThreadStateFactory(stateFactory);
     SetDefaultParameters(bd.Size());
@@ -817,7 +773,6 @@ SgUctThreadState* GoUctGlobalSearchStateFactory<POLICY,FACTORY>::Create(
         new GoUctGlobalSearchState<POLICY>(threadId, globalSearch.Board(), 0,
                                    globalSearch.m_param, 
                                            m_policyParam,
-                                           m_treeFilterParam,
                                            m_safe, m_allSafe);
     POLICY* policy = m_playoutPolicyFactory.Create(state->UctBoard());
     state->SetPolicy(policy);

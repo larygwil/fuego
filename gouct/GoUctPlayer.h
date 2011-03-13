@@ -12,11 +12,11 @@
 #include "GoBoardRestorer.h"
 #include "GoPlayer.h"
 #include "GoTimeControl.h"
-#include "GoUctDefaultMoveFilter.h"
+#include "GoUctDefaultRootFilter.h"
 #include "GoUctGlobalSearch.h"
 #include "GoUctObjectWithSearch.h"
 #include "GoUctPlayoutPolicy.h"
-#include "GoUctMoveFilter.h"
+#include "GoUctRootFilter.h"
 #include "SgArrayList.h"
 #include "SgDebug.h"
 #include "SgNbIterator.h"
@@ -74,10 +74,6 @@ public:
     };
 
     GoUctPlayoutPolicyParam m_playoutPolicyParam;
-
-    GoUctDefaultMoveFilterParam m_rootFilterParam;
-
-    GoUctDefaultMoveFilterParam m_treeFilterParam;
 
     /** Constructor.
         @param bd The board. */
@@ -245,11 +241,11 @@ public:
     const SEARCH& GlobalSearch() const;
 
     /** Return the current root filter. */
-    GoUctMoveFilter& RootFilter();
+    GoUctRootFilter& RootFilter();
 
     /** Set a new root filter.
         Deletes the old root filter and takes ownership of the new filter. */
-    void SetRootFilter(GoUctMoveFilter* filter);
+    void SetRootFilter(GoUctRootFilter* filter);
 
     void SetMpiSynchronizer(const SgMpiSynchronizerHandle &synchronizerHandle);
 
@@ -298,7 +294,7 @@ public:
 
     Statistics m_statistics;
 
-    boost::scoped_ptr<GoUctMoveFilter> m_rootFilter;
+    boost::scoped_ptr<GoUctRootFilter> m_rootFilter;
 
     /** Playout policy used if search mode is
         GOUCT_SEARCHMODE_PLAYOUTPOLICY. */
@@ -403,7 +399,7 @@ inline bool GoUctPlayer<SEARCH, THREAD>::ReuseSubtree() const
 }
 
 template <class SEARCH, class THREAD>
-inline GoUctMoveFilter& GoUctPlayer<SEARCH, THREAD>::RootFilter()
+inline GoUctRootFilter& GoUctPlayer<SEARCH, THREAD>::RootFilter()
 {
     return *m_rootFilter;
 }
@@ -475,7 +471,7 @@ inline void GoUctPlayer<SEARCH, THREAD>::SetResignThreshold(SgUctValue threshold
 }
 
 template <class SEARCH, class THREAD>
-inline void GoUctPlayer<SEARCH, THREAD>::SetRootFilter(GoUctMoveFilter*
+inline void GoUctPlayer<SEARCH, THREAD>::SetRootFilter(GoUctRootFilter*
                                                        filter)
 {
     m_rootFilter.reset(filter);
@@ -558,16 +554,15 @@ GoUctPlayer<SEARCH, THREAD>::GoUctPlayer(const GoBoard& bd)
       m_search(Board(),
                new GoUctPlayoutPolicyFactory<GoUctBoard>(
                                                  m_playoutPolicyParam),
-               m_playoutPolicyParam, m_treeFilterParam),
+               m_playoutPolicyParam),
       
       m_timeControl(Board()),
-      m_rootFilter(new GoUctDefaultMoveFilter(Board(), m_rootFilterParam)),
+      m_rootFilter(new GoUctDefaultRootFilter(Board())),
       m_mpiSynchronizer(SgMpiNullSynchronizer::Create()),
       m_writeDebugOutput(true)
 {
     SetDefaultParameters(Board().Size());
     m_search.SetMpiSynchronizer(m_mpiSynchronizer);
-    m_treeFilterParam.SetCheckSafety(false);
 }
 
 template <class SEARCH, class THREAD>

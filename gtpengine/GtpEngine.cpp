@@ -27,7 +27,7 @@ using boost::xtime_get;
 
 using namespace std;
 
-#ifdef _MSC_VER
+#ifdef WIN32
 // Don't report Visual C++ warning 4355 ('this' : used in base member
 // initializer list) in default warning level 3. The constructors of
 // ReadThread and PonderThread store a reference to 'this', which is

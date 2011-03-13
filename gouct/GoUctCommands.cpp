@@ -12,7 +12,7 @@
 #include "GoBoardUtil.h"
 #include "GoSafetySolver.h"
 #include "GoUctDefaultPriorKnowledge.h"
-#include "GoUctDefaultMoveFilter.h"
+#include "GoUctDefaultRootFilter.h"
 #include "GoUctEstimatorStat.h"
 #include "GoUctGlobalSearch.h"
 #include "GoUctPatterns.h"
@@ -180,7 +180,6 @@ void GoUctCommands::AddGoGuiAnalyzeCommands(GtpCommand& cmd)
         "param/Uct Param Policy/uct_param_policy\n"
         "param/Uct Param Player/uct_param_player\n"
         "param/Uct Param RootFilter/uct_param_rootfilter\n"
-        "param/Uct Param TreeFilter/uct_param_treefilter\n"
         "param/Uct Param Search/uct_param_search\n"
         "plist/Uct Patterns/uct_patterns\n"
         "pstring/Uct Policy Moves/uct_policy_moves\n"
@@ -374,7 +373,6 @@ void GoUctCommands::CmdParamGlobalSearch(GtpCommand& cmd)
             << "[bool] mercy_rule " << p.m_mercyRule << '\n'
             << "[bool] territory_statistics " << p.m_territoryStatistics
             << '\n'
-            << "[bool] use_tree_filter " << p.m_useTreeFilter << '\n'
             << "[string] length_modification " << p.m_lengthModification
             << '\n'
             << "[string] score_modification " << p.m_scoreModification
@@ -387,8 +385,6 @@ void GoUctCommands::CmdParamGlobalSearch(GtpCommand& cmd)
             s.SetGlobalSearchLiveGfx(cmd.Arg<bool>(1));
         else if (name == "mercy_rule")
             p.m_mercyRule = cmd.Arg<bool>(1);
-        else if (name == "use_tree_filter")
-            p.m_useTreeFilter = cmd.BoolArg(1);
         else if (name == "territory_statistics")
             p.m_territoryStatistics = cmd.Arg<bool>(1);
         else if (name == "length_modification")
@@ -512,77 +508,29 @@ void GoUctCommands::CmdParamPolicy(GtpCommand& cmd)
         throw GtpFailure() << "need 0 or 2 arguments";
 }
 
-/** Get and set root filter parameters.
+/** Get and set GoUctDefaultRootFilter parameters.
     This command is compatible with the GoGui analyze command type "param".
 
     Parameters:
-    @arg @c check_ladders See GoUctDefaultMoveFilter::CheckLadders() 
-    @arg @c check_offensive_ladders See GoUctDefaultMoveFilter::CheckOffensiveLadders() 
-    @arg @c check_safety See GoUctDefaultMoveFilter::CheckSafety()
-    @arg @c check_filter_first_line See GoUctDefaultMoveFilter::FilterFirstLine() */
+    @arg @c check_ladders See GoUctDefaultRootFilter::CheckLadders() */
 void GoUctCommands::CmdParamRootFilter(GtpCommand& cmd)
 {
     cmd.CheckNuArgLessEqual(2);
-    GoUctDefaultMoveFilterParam& p = Player().m_rootFilterParam;
+    GoUctDefaultRootFilter* f =
+        dynamic_cast<GoUctDefaultRootFilter*>(&Player().RootFilter());
+    if (f == 0)
+        throw GtpFailure("root filter is not GoUctDefaultRootFilter");
     if (cmd.NuArg() == 0)
     {
         // Boolean parameters first for better layout of GoGui parameter
         // dialog, alphabetically otherwise
-        cmd << "[bool] check_ladders " << p.CheckLadders() << '\n';
-        cmd << "[bool] check_offensive_ladders " << p.CheckOffensiveLadders() << '\n';
-        cmd << "[bool] check_safety " << p.CheckSafety() << '\n';
-        cmd << "[bool] filter_first_line " << p.FilterFirstLine() << '\n';
+        cmd << "[bool] check_ladders " << f->CheckLadders() << '\n';
     }
     else if (cmd.NuArg() == 2)
     {
         string name = cmd.Arg(0);
         if (name == "check_ladders")
-            p.SetCheckLadders(cmd.Arg<bool>(1));
-        else if (name == "check_offensive_ladders")
-            p.SetCheckOffensiveLadders(cmd.Arg<bool>(1));
-        else if (name == "check_safety")
-            p.SetCheckSafety(cmd.Arg<bool>(1));
-        else if (name == "filter_first_line")
-            p.SetFilterFirstLine(cmd.Arg<bool>(1));
-        else
-            throw GtpFailure() << "unknown parameter: " << name;
-    }
-    else
-        throw GtpFailure() << "need 0 or 2 arguments";
-}
-
-/** Get and set tree filter parameters.
-    This command is compatible with the GoGui analyze command type "param".
-
-    Parameters:
-    @arg @c check_ladders See GoUctDefaultMoveFilter::CheckLadders() 
-    @arg @c check_offensive_ladders See GoUctDefaultMoveFilter::CheckOffensiveLadders() 
-    @arg @c check_safety See GoUctDefaultMoveFilter::CheckSafety()
-    @arg @c check_filter_first_line See GoUctDefaultMoveFilter::FilterFirstLine() */
-void GoUctCommands::CmdParamTreeFilter(GtpCommand& cmd)
-{
-    cmd.CheckNuArgLessEqual(2);
-    GoUctDefaultMoveFilterParam& p = Player().m_treeFilterParam;
-    if (cmd.NuArg() == 0)
-    {
-        // Boolean parameters first for better layout of GoGui parameter
-        // dialog, alphabetically otherwise
-        cmd << "[bool] check_ladders " << p.CheckLadders() << '\n';
-        cmd << "[bool] check_offensive_ladders " << p.CheckOffensiveLadders() << '\n';
-        cmd << "[bool] check_safety " << p.CheckSafety() << '\n';
-        cmd << "[bool] filter_first_line " << p.FilterFirstLine() << '\n';
-    }
-    else if (cmd.NuArg() == 2)
-    {
-        string name = cmd.Arg(0);
-        if (name == "check_ladders")
-            p.SetCheckLadders(cmd.Arg<bool>(1));
-        else if (name == "check_offensive_ladders")
-            p.SetCheckOffensiveLadders(cmd.Arg<bool>(1));
-        else if (name == "check_safety")
-            p.SetCheckSafety(cmd.Arg<bool>(1));
-        else if (name == "filter_first_line")
-            p.SetFilterFirstLine(cmd.Arg<bool>(1));
+            f->SetCheckLadders(cmd.Arg<bool>(1));
         else
             throw GtpFailure() << "unknown parameter: " << name;
     }
@@ -602,7 +550,6 @@ void GoUctCommands::CmdParamTreeFilter(GtpCommand& cmd)
     @arg @c rave See SgUctSearch::Rave
     @arg @c weight_rave_updates SgUctSearch::WeightRaveUpdates
     @arg @c bias_term_constant See SgUctSearch::BiasTermConstant
-    @arg @c bias_term_frequency See SgUctSearch::BiasTermFrequency
     @arg @c expand_threshold See SgUctSearch::ExpandThreshold
     @arg @c first_play_urgency See SgUctSearch::FirstPlayUrgency
     @arg @c knowledge_threshold See SgUctSearch::KnowledgeThreshold
@@ -633,12 +580,10 @@ void GoUctCommands::CmdParamSearch(GtpCommand& cmd)
             << "[bool] virtual_loss " << s.VirtualLoss() << '\n'
             << "[bool] weight_rave_updates " << s.WeightRaveUpdates() << '\n'
             << "[string] bias_term_constant " << s.BiasTermConstant() << '\n'
-	    << "[string] bias_term_frequency " << s.BiasTermFrequency() << '\n'
             << "[string] expand_threshold " << s.ExpandThreshold() << '\n'
             << "[string] first_play_urgency " << s.FirstPlayUrgency() << '\n'
             << "[string] knowledge_threshold "
             << KnowledgeThresholdToString(s.KnowledgeThreshold()) << '\n'
-            << "[string] max_knowledge_threads " << s.MaxKnowledgeThreads() << '\n'
             << "[list/none/counts/sequence] live_gfx "
             << LiveGfxToString(s.LiveGfx()) << '\n'
             << "[string] live_gfx_interval " << s.LiveGfxInterval() << '\n'
@@ -664,8 +609,6 @@ void GoUctCommands::CmdParamSearch(GtpCommand& cmd)
             s.SetKeepGames(cmd.Arg<bool>(1));
         else if (name == "knowledge_threshold")
             s.SetKnowledgeThreshold(KnowledgeThresholdFromString(cmd.Arg(1)));
-        else if (name == "max_knowledge_threads")
-            s.SetMaxKnowledgeThreads(cmd.Arg<unsigned int>(1));
         else if (name == "lock_free")
             s.SetLockFree(cmd.Arg<bool>(1));
         else if (name == "log_games")
@@ -682,8 +625,6 @@ void GoUctCommands::CmdParamSearch(GtpCommand& cmd)
             s.SetVirtualLoss(cmd.Arg<bool>(1));
         else if (name == "bias_term_constant")
             s.SetBiasTermConstant(cmd.Arg<float>(1));
-        else if (name == "bias_term_frequency")
-            s.SetBiasTermFrequency(cmd.IntArg(1));
         else if (name == "expand_threshold")
             s.SetExpandThreshold(cmd.ArgMin<SgUctValue>(1, 0));
         else if (name == "first_play_urgency")
@@ -815,7 +756,7 @@ void GoUctCommands::CmdRaveValues(GtpCommand& cmd)
 }
 
 /** Return filtered root moves.
-    @see GoUctMoveFilter::Get() */
+    @see GoUctRootFilter::Get() */
 void GoUctCommands::CmdRootFilter(GtpCommand& cmd)
 {
     cmd.CheckArgNone();
@@ -1115,7 +1056,6 @@ void GoUctCommands::Register(GtpEngine& e)
     Register(e, "uct_param_policy", &GoUctCommands::CmdParamPolicy);
     Register(e, "uct_param_player", &GoUctCommands::CmdParamPlayer);
     Register(e, "uct_param_rootfilter", &GoUctCommands::CmdParamRootFilter);
-    Register(e, "uct_param_treefilter", &GoUctCommands::CmdParamTreeFilter);
     Register(e, "uct_param_search", &GoUctCommands::CmdParamSearch);
     Register(e, "uct_patterns", &GoUctCommands::CmdPatterns);
     Register(e, "uct_policy_moves", &GoUctCommands::CmdPolicyMoves);

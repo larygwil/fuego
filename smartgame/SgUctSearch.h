@@ -302,10 +302,7 @@ public:
     std::vector<SgMove> m_excludeMoves;
 
     /** Thread's counter for Randomized Rave in SgUctSearch::SelectChild(). */
-    int m_randomizeRaveCounter;
-
-    /** Thread's counter for Randomized Bias in SgUctSearch::PlayInTree(). */
-    int m_randomizeBiasCounter;
+    int m_randomizeCounter;
 
     SgUctThreadState(unsigned int threadId, int moveRange = 0);
 
@@ -657,10 +654,6 @@ public:
     /** See BiasTermConstant() */
     void SetBiasTermConstant(float biasTermConstant);
 
-    int BiasTermFrequency() const;
-
-    void SetBiasTermFrequency(int frequency);
-
     /** Points at which to recompute children.  
         Specifies the number of visits at which GenerateAllMoves() is
         called again at the node. This is to allow multiple knowledge
@@ -672,10 +665,6 @@ public:
 
     /** See KnowledgeThreshold() */
     void SetKnowledgeThreshold(const std::vector<SgUctValue>& counts);
-
-    unsigned int MaxKnowledgeThreads() const;
-
-    void SetMaxKnowledgeThreads(unsigned int threads);
 
     /** Maximum number of nodes in the tree.
         @note The search owns two trees, one of which is used as a temporary
@@ -939,8 +928,6 @@ private:
    
     /** See KnowledgeThreshold() */
     std::vector<SgUctValue> m_knowledgeThreshold;
-    
-    unsigned int m_maxKnowledgeThreads;
 
     /** Flag indicating that the search was terminated because the maximum
         time or number of games was reached. */
@@ -1022,8 +1009,6 @@ private:
     /** See BiasTermConstant() */
     float m_biasTermConstant;
 
-    int m_biasTermFrequency;
-
     /** See FirstPlayUrgency() */
     SgUctValue m_firstPlayUrgency;
 
@@ -1099,9 +1084,8 @@ private:
     void CreateChildren(SgUctThreadState& state, const SgUctNode& node,
                         bool deleteChildTrees);
 
-    SgUctValue GetBound(bool useRave, bool useBiasTerm,
-		   SgUctValue logPosCount, 
-                   const SgUctNode& child) const;
+    SgUctValue GetBound(bool useRave, SgUctValue logPosCount,
+                        const SgUctNode& child) const;
 
     SgUctValue GetValueEstimate(bool useRave, const SgUctNode& child) const;
 
@@ -1121,7 +1105,7 @@ private:
     
     void SearchLoop(SgUctThreadState& state, GlobalLock* lock);
 
-    const SgUctNode& SelectChild(int& randomizeCounter, bool useBiasTerm, const SgUctNode& node);
+    const SgUctNode& SelectChild(int& randomizeCounter, const SgUctNode& node);
 
     std::string SummaryLine(const SgUctGameInfo& info) const;
 
@@ -1156,16 +1140,6 @@ inline bool SgUctSearch::CheckFloatPrecision() const
 inline SgUctValue SgUctSearch::ExpandThreshold() const
 {
     return m_expandThreshold;
-}
-
-inline int SgUctSearch::BiasTermFrequency() const
-{
-    return m_biasTermFrequency;
-}
-
-inline void SgUctSearch::SetBiasTermFrequency(int frequency) 
-{
-    m_biasTermFrequency = frequency;
 }
 
 inline SgUctValue SgUctSearch::FirstPlayUrgency() const
@@ -1315,17 +1289,6 @@ inline void
 SgUctSearch::SetKnowledgeThreshold(const std::vector<SgUctValue>& t)
 {
     m_knowledgeThreshold = t;
-}
-
-inline unsigned int SgUctSearch::MaxKnowledgeThreads() const
-{
-    return m_maxKnowledgeThreads;
-}
-
-inline void
-SgUctSearch::SetMaxKnowledgeThreads(unsigned int threads)
-{
-    m_maxKnowledgeThreads = threads;
 }
 
 inline void SgUctSearch::SetNumberPlayouts(std::size_t n)
